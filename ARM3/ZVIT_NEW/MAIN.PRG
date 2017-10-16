@@ -568,7 +568,7 @@ SET ESCAPE ON
 m_year1:=STR(YEAR(DATE()),4)
 m_month1:=STRZERO(MONTH(DATE())-1,2)
 @6,10 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
-@6,15 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2014".and.m_year1>="2000")
+@6,15 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="2000")
 READ
 m_mnt:=RIGHT(m_year1,2)+m_month1
 IF LASTKEY()==K_ESC

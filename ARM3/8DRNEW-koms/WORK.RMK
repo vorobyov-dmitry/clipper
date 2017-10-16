@@ -1,0 +1,14 @@
+.prg.obj:
+    clipper $< /n /m
+
+.obj.exe:
+  rtlink fi main,work02,work04,copyfl,sprav,ct2us50 lib new,ct250
+  copy main.exe D:\BUHGAL\8DRNEW\main.exe
+
+main.obj:   main.prg
+work02.obj:   work02.prg
+work04.obj:   work04.prg
+copyfl.obj:   copyfl.prg
+
+
+main.exe : main.obj  work02.obj work04.obj copyfl.obj

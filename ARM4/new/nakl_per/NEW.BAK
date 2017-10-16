@@ -1,9 +1,0 @@
-
-pervnum.obj : pervnum.prg
-     ECHO ŠŒˆ‹Ÿ–ˆŸ ƒ€ŒŒ›
-     clipper @perekod  /N/W
-
-pervnum.exe : pervnum.obj
-     ECHO ‘’…ˆ… ƒ€ŒŒ›
-     rtlink fi pervnum,sprav,ct2us50 lib new,ct250
-

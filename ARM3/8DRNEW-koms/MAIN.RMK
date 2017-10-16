@@ -1,0 +1,20 @@
+compile = clipper $** /m /n >> l_comp
+link = RTLink
+
+
+.prg.obj:  // Procedure
+  $(compile)
+
+.udf.obj:  // User defined function
+  $(compile)
+
+.src.obj:  // Source (debug modules)
+  $(compile)
+
+main.obj:   main.prg
+work02.obj:   work02.prg
+work04.obj:   work04.prg
+copyfl.obj:   copyfl.prg
+
+MAIN.EXE    : MAIN.obj     WORK02.obj   COPYFL.obj   WORK04.obj     
+  $(link) @MAIN.LNK >>l_link
