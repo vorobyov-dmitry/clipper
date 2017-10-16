@@ -1,0 +1,17 @@
+.RTLink for Clipper  Dynamic Overlay Linker / Pre-Linker  Version 3.13
+(C) Copyright Pocket Soft Inc., 1988-1991.  All Rights Reserved.
+
+=> FI main,
+=>    prov,
+=>    maket,
+=>    viewms,
+=>    viewbr,
+=>    msh,
+=>    c:\compil\obj3\sprav,
+=>    docum,
+=>    browdb,
+=>    ct2us50
+=> OUT prov
+=> LIB ct250,new
+=> 
+325K

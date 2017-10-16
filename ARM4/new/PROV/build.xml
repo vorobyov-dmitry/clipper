@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="Windows-1251"?> 
+<project name="arm3" default="arhiv" basedir=".">
+	<target name="init" description="Initializing all environment variables, creation all necessary folders.">
+
+	<tstamp>
+
+		<format property="time0" pattern="dd.MM.yyyy hh:mm"/>
+
+	</tstamp> 
+	<property file="build.prop"/>
+</target>
+<target name="arhiv" description="Create arhiv file of project" depends="init">
+	<tstamp>
+		<format property="timeCurrent" pattern="yyyy-MM-dd-hh-mm"/>
+	</tstamp> 
+	<tstamp>
+		<format property="time1" pattern="dd.MM.yyyy hh:mm"/>
+	</tstamp> 
+	<echo>Start ${time1}</echo> 
+	<tar destfile="${dir.temp}/project.tar" basedir="${dir.current}" excludes="**/project*.tar.gz"/>
+	<gzip src="${dir.temp}/project.tar" destfile="arm4_${timeCurrent}.tar.gz"/>
+	<delete file="${dir.temp}/project.tar"/>
+	<tstamp>
+		<format property="time2" pattern="dd.MM.yyyy hh:mm"/>
+	</tstamp> 
+	<echo>Finish ${time2}</echo> 
+
+</target> 
+
+</project> 
+
+

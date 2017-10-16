@@ -1,0 +1,8 @@
+
+indani.obj: main.prg
+     ECHO ŠŒˆ‹Ÿ–ˆŸ ƒ€ŒŒ›
+     clipper main  /oindani   /N/W/b
+
+indNEW.exe: indani.obj
+     ECHO ‘’…ˆ… ƒ€ŒŒ›
+     rtlink fi indani,sprav,ct2us50 lib new,ct250 OUTPUT indNEW.exe

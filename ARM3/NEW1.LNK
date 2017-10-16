@@ -1,0 +1,7 @@
+FI e:\compil\obj\diman,
+   e:\compil\obj\sprav,
+   e:\compil\obj\vladn,
+   e:\compil\obj\waln,
+   c:\clipper5\lib\ct2us50
+OUT e:\compil\exe\buhnew
+LIB ct250,my_own,new

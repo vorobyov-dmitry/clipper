@@ -1,0 +1,13 @@
+FI main,
+   mash,
+   browdb,
+   docum,
+   nakl,
+   nalog,
+   rasch,
+   schet,
+   lzk,
+   f:\compil\obj\sprav,
+   ct2us50
+OUT nakl
+LIB ct250,new

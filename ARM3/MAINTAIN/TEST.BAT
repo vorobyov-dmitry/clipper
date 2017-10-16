@@ -1,0 +1,1 @@
+FOR /F "tokens=2,3,4  delims=/ " %%I IN ('DATE /T') DO 7z a  bd%%K_%%I_%%J.7z @list.txt

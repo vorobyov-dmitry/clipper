@@ -1,0 +1,10 @@
+DEL new.lib
+DEL new.obj
+DEL lib1.obj
+DEL calcul.obj
+clipper new /n/w
+clipper lib1 /n/w
+clipper calcul /n/w
+Clipper mnt /n/w
+lib new lib1 calcul new mnt,new.lst
+copy new.lib c:\clipper5\lib\new.lib

@@ -1,0 +1,20 @@
+#!CLS
+#!ECHO OF
+   CompOptions := /w /m /n /b
+.prg.obj:
+    clipper $< $(CompOptions)
+
+main.obj:   main.prg
+mash.obj:   mash.prg
+nakl.obj:   nakl.prg
+lzk.obj:    lzk.prg
+nalog.obj:  nalog.prg
+schet.obj:  schet.prg
+docum.obj:  docum.prg
+browdb.obj: browdb.prg
+rasch.obj:  rasch.prg
+
+
+nakl.exe : main.obj  docum.obj browdb.obj schet.obj nalog.obj rasch.obj mash.obj nakl.obj lzk.obj
+        ECHO BUILD MODULE
+        rtlink @new >rtnew

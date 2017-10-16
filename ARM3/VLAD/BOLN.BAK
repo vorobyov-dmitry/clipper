@@ -1,0 +1,1226 @@
+#include "menu.ch"
+#include "new.ch"
+#define KVO_DAY 5
+MEMVAR m_mash,m_temppath,m_level,m_workpath,m_sprpath,p_npr,m_tabn,m_oper,m_computer
+MEMVAR m_mainpath,m_syspath,m_bufpath,m_dbspath,a_menu
+STATIC lApnd:=.f.,;
+a_boln:={;
+{"1", "Захворювання            "},;
+{"2", "Нещасний випадок на вир."},;
+{"3", "Нещасний випадок в побут"},;
+{"4", "Нещасн. випадок по путi "},;
+{"5", "Карантин                "},;
+{"6", "Догляд за хворим        "},;
+{"7", "Санкурлiкування         "},;
+{"8", "Допологова або пiсл. вiд"}}
+
+Function Boln()
+  LOCAL m_key,i,j,k,GetList:={},m_screen,n_win,n_win1,m_col,m_file
+  LOCAL l_stop:=.t.,a_get:={},a_data:={},n_pole,c_key,a_say:={}
+  LOCAL a_get1:={},a_say1:={},m_browse1,s_file:={},m_ksash,m_kind,m_kopu
+  LOCAL m_state:="0",l_exit,m_valid,m_exit:=READEXIT(.T.),m_path:=IF(a_menu[1]=="BUF",m_bufpath,m_mainpath)
+  LOCAL n19:=0,p_block1,p_block2,m_mnt1:="    "
+  DCL MENU
+  DCL LIST
+  LOCAL m_select:=SELECT()
+  SavePar()
+  WSELECT(0)
+  NET USE (m_syspath+"tbget") INDEX (m_syspath+"tbget") NEW READONLY
+  SopenFiles("019",@s_file)
+  NET USE (m_path+"fvnum.dbr") NEW
+  NET USE (m_mainpath+"Fl01") INDEX (m_mainpath+"Fl01") NEW READONLY
+  USE (m_path+"boln1") INDEX (m_path+"boln1") NEW
+  USE (m_path+"boln2") INDEX (m_path+"boln2") NEW
+
+  Lapnd:=.f.
+  SELE boln1
+  INIT GET "BOLN1 " TO a_get KEY n_pole DATA a_data SAY a_say
+  n19 = LEN(a_get) // Последний элеменет a_get
+  a_get[1]:PostBlock:={||IF(m_key<>K_INS,.t.,Tax03(@a_data,@a_get,@n_pole))}
+  a_get[3]:PostBlock:={||sp10(@a_data,@a_get,@n_pole)}
+  a_say[5]:={{ASC("?"),{||KodOpl()}}}
+  a_get[8]:PostBlock:={|x,p|p:=EVAL(x:block),IF(m_key<>K_INS,.t.,Taxddoc1(@a_data,@a_get,@n_pole,p))}
+  a_get[9]:PostBlock:={||IF(a_data[9]>=a_data[8],.t.,.f.)}
+  p_block2:={||SayItog1(a_data,a_get)}
+  FOR i:=14 TO 29 step 3
+  a_get[i]:PostBlock:=a_get[i+1]:PostBlock:=p_block2
+  next
+  p_block1 = ;
+  {|x|IF(x==NIL,RIGHT(a_data[n_pole],2)+"."+LEFT(a_data[n_pole],2),a_data[n_pole]:=RIGHT(x,2)+LEFT(x,2))}
+  FOR i=1 to 6
+     a_get[13+(i-1)*3]:block:=p_block1
+     a_get[13+(i-1)*3]:picture:="99.99"
+  next
+  a_get[n19]:block:=p_block1
+  a_get[n19]:postblock:=;
+  {|x,p|p:=EVAL(x:block),(EMPTY(LEFT(p,2)).AND.EMPTY(RIGHT(p,2))).OR.(LEFT(p,2)>="01".AND.LEFT(p,2)<="12".AND.RIGHT(p,2)<="99".AND.RIGHT(p,2)>="00")}
+  a_get[13]:PostBlock:={|x,p|p:=EVAL(x:block),TaxMnt1(@a_data,@a_get,@n_pole,13,p)}
+  a_get[16]:PostBlock:={|x,p|p:=EVAL(x:block),TaxMnt1(@a_data,@a_get,@n_pole,16,p)}
+  a_get[19]:PostBlock:={|x,p|p:=EVAL(x:block),TaxMnt1(@a_data,@a_get,@n_pole,19,p)}
+  a_get[22]:PostBlock:={|x,p|p:=EVAL(x:block),TaxMnt1(@a_data,@a_get,@n_pole,22,p)}
+  a_get[25]:PostBlock:={|x,p|p:=EVAL(x:block),TaxMnt1(@a_data,@a_get,@n_pole,25,p)}
+  a_get[28]:PostBlock:={|x,p|p:=EVAL(x:block),TaxMnt1(@a_data,@a_get,@n_pole,28,p)}
+  a_get[n19]:picture:="99.99"
+  a_get[n19]:PreBlock:={||(m_key<>K_INS)}
+  n_win:=WOPEN(0,0,MAXROW(),MAXCOL())
+  CrList1("BOLN1",@m_browse,@l_print)
+  n_win1:=InitScr("BOLN1 ")
+  a_get1:=CrGet("BOLN2",a_say1)
+
+//  a_say1[1]={{K_F2,{||PrintBoln(a_data)}}}
+//  a_get1[1]:PostBlock:={|x|kpt_vl(x,@a_dop)}
+//  a_get1[4]:PreBlock:={||IF(NumPotr(a_data[3])=="5",Boln3(lApnd,"BOLN3"),IF(NumPotr(a_data[3])=="9",Boln3(lApnd,"BOLN4"),.t.))}
+  m_browse1               := TBrowseDB(16,2,22,77)
+  m_browse1:colorspec     :='w/B,B/W,G+/b,G+/w,N/BG,w+/b'
+  m_browse1:colsep        := '│'
+  m_browse1:SkipBlock     := {|n| SkipDb1(n,{||(boln1->vnumc==boln2->vnumc)},lApnd) }
+  m_browse1:goBottomBlock := {||boln2->(DBSEEK(boln1->vnumc,.f.)),boln2->(DBEVAL(,,{||(boln1->vnumc==boln2->vnumc)})),boln2->(dbskip(-1))}
+  m_browse1:goTopBlock    := {||boln2->(DBSEEK(boln1->vnumc,.f.))}
+  CrBrCol("BOLN2",@m_browse1)
+  i:=1;AEVAL(a_get1,{|x|a_get1[i]:block:=m_browse1:GetColumn(i):Block,;
+  m_browse1:GetColumn(i):footsep:=IF(m_browse1:GetColumn(i):headsep=="┬─","╧═","══"),i++})
+a_get1[1]:Postblock:=a_get1[2]:Postblock:={|p|TaxOtdn(a_data[4])}
+a_get1[3]:Postblock:=a_get1[4]:Postblock:=a_get1[5]:Postblock:={|p|TaxSum()}
+
+  Select boln1 ; Wselect(n_win)
+  ADD menu up_down
+  add menu Left_Right
+  add menu search
+  ADD MENU NAME "В~иправлення" ;
+  ITEMS {"Добавити   Ins" ,"Виправити  Enter" ,;
+  "Удалити    Delete "} ;
+  KEY {K_INS,K_ENTER,K_DEL}
+  add menu print
+  SELECT boln1
+  m_browse:goBottom()
+//                      1   2    3  4     5    6
+  m_browse:colorspec:='w/B,B/W,w+/b,w/b*,b+/w,w+/b*'
+//  FOR i:=1 TO m_browse:colCount
+//    m_browse:GetColumn(i):colorBlock:={||{1,2}}
+//  NEXT
+  INIT menu
+  DISPLAYLIST
+  DO WHILE .t.
+    m_browse:refReshCurrent()
+    m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},{1,1})
+    m_key:=0
+    keyboard ""
+    DO WHILE .NOT.(m_browse:stabilize()) .AND.((m_key:=inkey())==0)
+    ENDDO
+    IF m_browse:stabilize()
+      m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},{3,3})
+      m_browse:ColorRect({m_browse:RowPos,m_browse:ColPos,m_browse:RowPos,m_browse:ColPos},{2,2})
+    ENDIF
+    IF m_key==0
+      m_key:=INKEY(0)
+    ENDIF
+    Winsay
+    DEAL MENU
+    DO CASE
+      DEAL BROWSE m_browse KEY m_key
+      CASE m_key==K_F2
+      IF ANSWERu("Друкувати реєстр лiкарняних?")==YES
+        PrBoln()
+      ENDIF
+      PRINT BROWSE m_browse KEY m_key
+      SCAN  BROWSE m_browse KEY m_key
+      CASE m_key==K_ALT_N.AND.ANSWERu("Заносити лiкарнянi?")==YES
+       	IF .NOT.GetType(@m_mnt1)
+  		returN .f.
+	ENDIF
+
+        Zan01(m_mnt1)
+
+
+      CASE m_key==K_SH_F6
+//        ShiftF6(m_browse,SELECT("BOLN1"))
+      SEARCH  BROWSE m_browse KEY m_key
+      RANGE  BROWSE m_browse KEY m_key
+      CONT SEARCH  BROWSE m_browse KEY m_key
+      CASE m_Key == K_DEL.AND.ANSWERu("Видалити лiкарняний ;"+boln1->ser+boln1->num+" ?")==YES
+        DelBoln2(m_browse1)
+        SELE boln1
+        Boln1->(DBDELETE())
+        Boln1->(DBSKIP(1))
+        IF boln1->(EOF())
+          Boln1->(DBSKIP(-1))
+        ENDIF
+        m_browse:RefreshAll()
+      CASE m_key==K_ENTER
+        STABILIZE BROWSE m_browse
+        WSELECT(n_win1)
+        m_screen:=SaveScreen(0,0,MAXROW(),MAXCOL())
+        IF INDEXORD()<>0;c_key:=&(INDEXKEY(0));ELSE;c_key:="";ENDIF
+        SELECT boln1;n_pole:=1
+        DBGOTO(RECNO())
+        INIT DATA a_data FROM a_get KEY n_pole
+        Display Get a_get KEY n_pole SAY a_say DATA a_data
+        n_pole:=1;m_state:="0"
+        set escape on
+        SELECT BOLN2
+        m_browse1:rowPos:=1;m_browse1:colPos:=1;m_browse1:configure()
+        lApnd:=.f.;EVAL(m_browse1:GotopBlock)
+        IF boln2->vnumc==boln1->vnumc //m_browse1:hitBottom
+          Stabilize Browse m_browse1
+          m_browse1:autolite:=.f.
+          m_browse1:DeHilite()
+        ENDIF
+        SET ESCAPE ON
+        SayItog1(a_data,a_get)
+        l_exit:=.t.
+        DO WHILE .t..AND.l_exit
+         DO CASE
+          CASE m_state=="0"
+            select boln1
+            WSELECT(n_win1)
+            DEAL GET a_get KEY n_pole TO m_key COLOR TOKEN(m_browse:colorSpec,",",2),TOKEN(a_get[n_pole]:ColorSpec,",",1) SAY a_say DATA a_data
+            DO CASE
+                CASE m_key == K_UP;IF n_pole ==1;ELSE;n_pole:=n_pole-1;END
+                CASE m_key == K_DOWN;IF n_pole ==LEN(a_get);ELSE;n_pole:=n_pole+1;END
+                CASE m_key == K_CTRL_U;LSetprint()
+                CASE m_key == K_F12.OR.m_key == K_CTRL_END.OR.m_key==K_ESC
+                IF NetRLOCK();n_pole:=1;AEVAL(a_get,{|x|FIELDPUT(x:cargo,a_data[n_pole]),n_pole++})
+                  UNLOCK;EXIT
+                ELSE;DispError("Невозможно заблокировать запись");END
+                CASE m_key == K_ENTER ;WinSay
+                ReadMy({a_get[n_pole]},IF(a_say[n_pole] # NIL.AND.VALTYPE(a_say[n_pole][1])=="A",a_say[n_pole],NIL))
+                DispSay(@n_pole,@a_say,@a_data)
+              CASE m_key = K_ALT_1;SAVEPAR();SpBrow("SP20");SavePar(1)
+              CASE m_key==K_ALT_N.AND.ANSWERu("Таксувати лiкарняний ?")==YES
+                DelBoln2(m_browse1)
+                TaxBoln(a_data)
+                m_browse1:rowPos:=1;m_browse1:colPos:=1;m_browse1:configure()
+                lApnd:=.f.;EVAL(m_browse1:GotopBlock)
+                IF boln2->vnumc==boln1->vnumc //m_browse1:hitBottom
+                  Stabilize Browse m_browse1
+                  m_browse1:autolite:=.f.
+                  m_browse1:DeHilite()
+                ENDIF
+                Sele Boln1
+              CASE m_key = K_TAB
+                 m_state:="4"
+              CASE m_key = K_F2
+//                 PrintBoln(a_data)
+            ENDCASE
+          CASE m_state=="4"
+            EDITBoln2(m_browse1,a_get1,a_say1,@m_state,@l_exit)
+          ENDCASE
+        ENDDO
+        RestScreen(0,0,MAXROW(),MAXCOL(),m_screen)
+        Wselect(n_win)
+        IF INDEXORD()<>0;IF c_key<>&(INDEXKEY(0));m_browse:refreshAll()
+      ELSE;m_browse:refreshCurrent();END;END
+    CASE m_key==K_INS
+      STABILIZE BROWSE m_browse
+      WSELECT(n_win1)
+      m_screen:=SaveScreen(0,0,MAXROW(),MAXCOL())
+      RestScreen(0,0,MAXROW(),MAXCOL(),m_screen)
+      l_stop:=.t.
+      m_valid:=a_get[1]:postBlock;a_get[1]:postBlock:={|x|IF(EMPTY(EVAL(x:block)),.t.,EVAL(m_valid,x))}
+      m_ksash:=BLANK(boln1->ksash,.t.)
+      m_kopu:=BLANK(boln1->kopu,.t.)
+      m_kind:=BLANK(boln1->kind,.t.)
+
+      DO WHILE l_stop
+        set escape on
+        CLEARWIN(m_browse1:nTop,m_browse1:nLeft,m_browse1:nBottom,m_browse1:nRight,m_browse1:colorSpec)
+        select boln1;n_pole:=1
+        INIT DATA a_data FROM a_get KEY n_pole BLANK
+        a_data[6]:=m_ksash
+        a_data[7]:=m_kopu
+        a_data[5]:=m_kind
+        Display Get a_get KEY n_pole SAY a_say DATA a_data
+          n_pole:=1
+          DO WHILE .t.
+            IF a_say[n_pole] # NIL.AND.VALTYPE(a_say[n_pole][1])=="A".AND.a_say[n_pole][1][1]==ASC("?")
+              KEYBOARD(ASC("?"))
+            ENDIF
+            ReadMy({a_get[n_pole]},IF(a_say[n_pole] # NIL.AND.VALTYPE(a_say[n_pole][1])=="A",a_say[n_pole],NIL))
+            DispSay(@n_pole,@a_say,@a_data)
+            DO CASE
+              CASE LASTKEY() == K_ESC.AND.ALERT("Вийти iз програми",{"Так","Нi"},"Gr+/r,w+/b")==1;l_stop:=.f.;EXIT
+              CASE LASTKEY() == K_UP.AND.n_pole # 1;n_pole--;LOOP
+              CASE n_pole == LEN(a_get)
+                IF NetDbAp()
+                  n_pole:=1;AEVAL(a_get,{|x|FIELDPUT(x:cargo,a_data[n_pole]),n_pole++})
+                  boln1->oper:=m_oper;boln1->dvv:=DATE()
+                   m_ksash := a_data[6]
+                   m_kopu  := a_data[7]
+                   m_kind  := a_data[5]
+                  EXIT
+                ELSE
+                  DispError("Невозможно добавить запись")
+                ENDIF
+              CASE n_pole == 1.AND.EMPTY(a_data[1]);l_stop:=.f.;EXIT
+            OTHERWISE
+                n_pole++
+            ENDCASE
+          ENDDO
+          IF LASTKEY()==K_ESC.OR..NOT.l_stop
+            EXIT
+          ENDIF
+          IF fvnum->(NetRlock())
+            boln1->vnumc:=STR(fvnum->vnumc,6)
+            fvnum->vnumc:=fvnum->vnumc+1
+            fvnum->(DBCOMMIT())
+            fvnum->(DbUnlock())
+          ELSE
+            DispError("Вiдмовлено в доступi")
+            EXIT
+          ENDIF
+          dbUnlock()
+          select boln2
+          TaxBoln(a_data)
+          EDITBoln2(m_browse1,a_get1,a_say1,@m_state,@l_exit)
+        ENDDO
+        a_get[1]:postBlock:=m_valid
+        RestScreen(0,0,MAXROW(),MAXCOL(),m_screen)
+        Wselect(n_win)
+        m_browse:refreshAll()
+   FINISH LIST
+   WCLOSE(n_win);WCLOSE(n_win1)
+   WSELECT(0)
+   READEXIT(m_exit)
+  CLOSE base boln1,boln2,fvnum,tbget,fl01
+  ScloseFiles(s_files)
+  SavePar(1)
+RETURN .t.
+FUNCTION SkipDb1(n,m_block,lApnd)
+    LOCAL  ncount  := 0
+    STATIC m_recno :=0
+IF n > 0
+   DO WHILE ncount < n.AND..NOT.EOF()
+        m_recno:=RECNO()
+        DBSKIP()
+       // Если конец файла
+       IF  EOF().OR..NOT.EVAL(m_block)
+        IF .NOT.lApnd
+          DBSKIP( -1 )
+          EXIT
+        ELSE
+          ncount++
+          DBGOBOTTOM()
+          DBSKIP()
+          EXIT
+        ENDIF
+       END
+       ncount++
+   ENDDO
+ELSEIF n < 0
+   DO WHILE ncount > n
+       IF EOF()
+        DBGOTO(m_recno)
+      ELSE
+       DBSKIP( -1 )
+      ENDIF
+       IF BOF();EXIT;END
+       IF .NOT.EVAL(m_block);DBSKIP(1);EXIT;END
+       ncount--
+   ENDDO
+END
+RETURN ( ncount )
+Function CrList1(m_var,m_browse,l_print,m_var1)
+    LOCAL m_col
+    IF m_var1==NIL
+      SELECT(m_var)
+    ELSE
+      SELECT(m_var1)
+    ENDIF
+    sptabl1->(DBGOTOP())
+    sptabl1->(dbseek(m_var))
+    IF sptabl1->(FOUND())
+      m_browse:=TBrowseDB(;
+      IF(sptabl1->bt==0,3,sptabl1->bt),IF(sptabl1->lt==0,1,sptabl1->lt),;
+      IF(sptabl1->tp==0,MAXROW()-1,sptabl1->tp),IF(sptabl1->nr==0,MAXCOL()-1,sptabl1->nr))
+      m_browse:colorspec:=IF(EMPTY(sptabl1->clr),'W/B,B/W,GR+/b,GR+/N,N/BG,w+/b',sptabl1->clr)
+      m_browse:colsep        := '│'
+      m_browse:SkipBlock     := { |n| SkipDb(n) }
+      m_browse:goBottomBlock := { ||  DBGOBOTTOM() }
+      m_browse:goTopBlock    := { ||  DBGOTOP()  }
+      m_browse:cargo        := ALLTRIM(sptabl1->cargo)
+      SELECT (sptabl1->fl)
+  ELSE
+    DispErr("Служебная ошибка ;нет описания DBROWSE "+m_var)
+    RETURN .t.
+  ENDIF
+  sptabl->(DBGOTOP())
+  sptabl->(dbseek(m_var))
+  DO WHILE .NOT.sptabl->(EOF()).and.ALLTRIM(sptabl->NAME)==m_var
+      m_Col           := TBColumnNew()
+      IF sptabl->type=='02'
+        m_col:block:=&("{||"+trn(ALLTRIM(sptabl->value))+"}")
+      ELSE
+        IF sptabl->type=='01'
+          m_col:block:=&("{|x|IF(x==NIL,field->"+ALLTRIM(sptabl->value)+",field->"+ALLTRIM(sptabl->value)+":=x)}")
+        ELSE
+          m_col:block:=&("{|x|IF(x==NIL,"+ALLTRIM(sptabl->value)+","+ALLTRIM(sptabl->value)+":=x)}")
+        ENDIF
+      ENDIF
+      m_col:heading:=ALLTRIM(sptabl->heading)
+      AADD(l_print,IF(sptabl->print==.t.,.T.,.f.))
+      m_Col:colorblock:=  {|| {1,2}}
+        IF sptabl->type=='01'
+          m_Col:headsep    := "┬─";m_col:colsep:="│";m_col:footsep:="╧═"
+        ELSE
+          m_Col:headsep    := "─";m_col:colsep:=" ";m_col:footsep:="══"
+        ENDIF
+      IF .NOT.EMPTY(sptabl->width)
+        m_col:width:=sptabl->width
+      ENDIF
+     Sptabl->(DBSKIP())
+     m_browse:addColumn(m_col)
+    ENDDO
+    m_browse:freeze        := IF(EMPTY(sptabl1->frz),0,sptabl1->frz)
+  RETURN .t.
+STATIC  Function CrBrCol(m_var,m_browse,m_var1)
+    LOCAL m_col
+    IF m_var1==NIL
+      SELECT(m_var)
+    ELSE
+      SELECT(m_var1)
+    ENDIF
+  sptabl->(DBGOTOP())
+  sptabl->(dbseek(m_var))
+  DO WHILE .NOT.sptabl->(EOF()).and.ALLTRIM(sptabl->NAME)==m_var
+      m_Col           := TBColumnNew()
+      IF sptabl->type=='02'
+        m_col:block:=&("{||"+trn(ALLTRIM(sptabl->value))+"}")
+      ELSE
+        IF sptabl->type=='01'
+          m_col:block:=&("{|x|IF(x==NIL,field->"+ALLTRIM(sptabl->value)+",field->"+ALLTRIM(sptabl->value)+":=x)}")
+        ELSE
+          IF sptabl->type=='05'
+            m_col:block:={|x|IF(x==NIL,RIGHT(field->mnt,2)+"."+LEFT(field->mnt,2),field->mnt:=RIGHT(x,2)+LEFT(x,2))}
+          ELSE
+            m_col:block:=&("{|x|IF(x==NIL,"+ALLTRIM(sptabl->value)+","+ALLTRIM(sptabl->value)+":=x)}")
+          ENDIF
+        ENDIF
+      ENDIF
+      m_col:heading:=ALLTRIM(sptabl->heading)
+//      AADD(l_print,IF(sptabl->print==.t.,.T.,.f.))
+      m_Col:colorblock:=  {|| {3,2}}
+        IF sptabl->type=='01'.OR.sptabl->type=='04'
+          m_Col:headsep    := "┬─";m_col:colsep:="│"
+        ELSE
+          m_Col:headsep    := "─";m_col:colsep:=" "
+        ENDIF
+      IF .NOT.EMPTY(sptabl->width)
+        m_col:width:=sptabl->width
+      ENDIF
+     Sptabl->(DBSKIP())
+     m_browse:addColumn(m_col)
+    ENDDO
+    m_browse:freeze        := IF(EMPTY(sptabl1->frz),0,sptabl1->frz)
+RETURN .t.
+Function MyGoTop(m_var)
+    DBSEEK(m_var,.t.)
+    DO WHILE m_var==field->vnumc
+      DBSKIP(-1)
+      IF BOF()
+        EXIT
+      ENDIF
+    ENDDO
+    IF .NOT.BOF()
+      DBSKIP(1)
+    ENDIF
+RETURN .t.
+STATIC FUNCTION SkipDb(n)
+    LOCAL  ncount  := 0
+IF n > 0
+   DO WHILE ncount < n
+        DBSKIP()
+       // Если конец файла
+       IF  EOF()
+          DBSKIP( -1 )
+          EXIT
+       END
+       ncount++
+   ENDDO
+ELSEIF n < 0
+   DO WHILE ncount > n
+       DBSKIP( -1 )
+       IF BOF()
+          EXIT
+       END
+       ncount--
+   ENDDO
+END
+RETURN ( ncount )
+Function IniTGet(m_var,a_say)
+LOCAL a_get:={},i:=0
+tbget->(DBGOTOP())
+tbget->(DBSEEK(m_var))
+do while m_var=LEFT(tbget->p01,LEN(m_var)).and..not.tbget->(eof())
+  i++;AADD(a_get,GetNew())
+  a_get[i]:row:=tbget->row
+  a_get[i]:col:=tbget->col
+  a_get[i]:picture:="@K"
+  IF .NOT.EMPTY(alltrim(tbget->pict))
+    a_get[i]:picture:="@K"+rtrim(tbget->pict)
+  ENDIF
+  a_get[i]:cargo:=FIELDNUM(alltrim(tbget->name))
+  IF .NOT.EMPTY(tbget->clr)
+    a_get[i]:colorSpec:=ALLTRIM(tbget->clr)
+  ELSE
+    a_get[i]:colorSpec:="g+/b,gr+/n"
+  ENDIF
+  IF .NOT.EMPTY(tbget->valid)
+    a_get[i]:PostBlock=GetValid(ALLTRIM(UPPER(tbget->valid)))
+  ENDIF
+  IF .NOT.EMPTY(tbget->WHEN)
+    a_get[i]:PreBlock=GetValid(ALLTRIM(UPPER(tbget->when)))
+  ENDIF
+  AADD(a_say,NIL)
+  IF .NOT.EMPTY(tbget->block)
+        a_say[Len(a_say)]:={tbget->row1,tbget->Col1,Alltrim(tbget->pict1),IF(empty(tbget->clr1),"Gr+/b",Alltrim(tbget->clr1)),SayTr(ALLTRIM(UPPER(tbget->block)))}
+  ENDIF
+  tbget->(dbskip())
+enddo
+RETURN (a_get)
+Function CrGet(m_var,a_say)
+LOCAL a_get:={},i:=0
+tbget->(DBGOTOP())
+tbget->(DBSEEK(m_var))
+do while m_var=LEFT(tbget->p01,LEN(m_var)).and..not.tbget->(eof())
+  i++;AADD(a_get,GetNew())
+  a_get[i]:row:=tbget->row
+  a_get[i]:col:=tbget->col
+   a_get[i]:picture:="@K"
+  IF .NOT.EMPTY(alltrim(tbget->pict))
+    a_get[i]:picture:="@K"+rtrim(tbget->pict)
+  ENDIF
+  a_get[i]:cargo:=FIELDNUM(alltrim(tbget->name))
+  IF .NOT.EMPTY(tbget->clr)
+    a_get[i]:colorSpec:=ALLTRIM(tbget->clr)
+  ELSE
+    a_get[i]:colorSpec:="g+/b,gr+/n"
+  ENDIF
+  IF .NOT.EMPTY(tbget->valid)
+    a_get[i]:PostBlock=GetValid(ALLTRIM(UPPER(tbget->valid)))
+  ENDIF
+  IF .NOT.EMPTY(tbget->WHEN)
+    a_get[i]:PreBlock=GetValid(ALLTRIM(UPPER(tbget->when)))
+  ENDIF
+  IF a_say<>NIL
+    AADD(a_say,NIL)
+    IF .NOT.EMPTY(tbget->block)
+        a_say[Len(a_say)]:={tbget->row1,tbget->Col1,Alltrim(tbget->pict1),IF(empty(tbget->clr1),"Gr+/b",Alltrim(tbget->clr1)),SayTr(ALLTRIM(UPPER(tbget->block)))}
+    ENDIF
+  ENDIF
+  tbget->(dbskip())
+enddo
+RETURN (a_get)
+STATIC Function GetValid(m_var)
+LOCAL m_block
+DO CASE
+  CASE m_var=="F"
+    m_block:={||.f.}
+  CASE m_var=="LV"
+    m_block:={||IF(m_level<=3,.t.,.f.)}
+  CASE m_var=="LV&IZM2"
+    m_block:={||IF(m_level<=3,.t.,.f.)}
+  CASE m_var=="LAPND"
+    m_block:={||lApnd}
+  CASE m_var=="T"
+    m_block:={||.t.}
+  CASE m_var=="SP44"
+    m_block:={||sp44->(sp_vl("SP44"))}
+  CASE m_var=="SP08"
+    m_block:={||sp08->(sp_vl("SP08","2"))}
+  CASE m_var=="SP05"
+    m_block:={||sp05->(sp_vl("SP05","2"))}
+  CASE m_var=="SP02"
+    m_block:={||sp02->(sp_vl("SP02A"))}
+  CASE m_var=="SP01"
+    m_block:={||sp01->(sp_vl("SP01"))}
+  CASE m_var=="SP10"
+    m_block:={||sp10->(sp_vl("SP10A"))}
+  CASE m_var=="SP17"
+    m_block:={||sp17->(sp_vl("SP17"))}
+  CASE m_var=="UN"
+    m_block:={|p,x|x:=EVAL(p:block),IF(EMPTY(x),.f.,SpUn(x))}
+  CASE m_var=="SDV&UN"
+    m_block:={|p,x|x:=JUSTRIGHT(EVAL(p:block)),EVAL(p:block,x),p:display(),IF(EMPTY(x),.f.,SpUn(x))}
+  CASE m_var=="SDV"
+    m_block:={|p,x|x:=JUSTRIGHT(EVAL(p:block)),EVAL(p:block,x),p:display(),.t.}
+ENDCASE
+RETURN m_block
+STATIC Function SayTR(m_var)
+LOCAL i:={||""}
+DO CASE
+  CASE m_var=="SAY02"
+    i:={|x,n|2*x[12]}
+  CASE m_var=="SP08"
+    i:={|x,n|Sp08->(DS(x[n])),Sp08->name8}
+  CASE m_var=="SP44"
+    i:={|x,n|sp44->(DS(x[n])),sp44->naim7}
+  CASE m_var=="SP05"
+    i:={|x,n|Sp05->(DS(x[n])),Sp05->naim5a}
+  CASE m_var=="SP01"
+    i:={|x,n|Sp01->(DS(x[n])),Sp01->naim1}
+  CASE m_var=="SP02"
+    i:={|x,n|Sp02->(DS(x[n])),Sp10->(DS(Sp02->tabn)),_fio()}
+  CASE m_var=="SP10"
+    i:={|x,n|Sp10->(DS(x[n])),_fio()}
+ENDCASE
+RETURN i
+STATIC Function DispSay(n_pole,a_say,a_data,i)
+  LOCAL j:=IF(i==NIL,n_pole,i),k:=n_pole
+  n_pole:=j
+  IF a_say[n_pole] # NIL .AND. VALTYPE(a_say[n_pole][1])<>"A"
+    SETPOS(a_say[n_pole][1],a_say[n_pole][2])
+    DISPOUT(TRANSFORM(EVAL(a_say[n_pole][5],a_data,n_pole),a_say[n_pole][3]),a_say[n_pole][4])
+  ENDIF
+  n_pole:=k
+RETURN .t.
+Function Delstroka(m_browse1)
+IF  ANSWERu( "Ви дiйсно бажаєте видалити строку?" )==YES
+  IF NetRLOCK();dbdelete();dbUNLOCK()
+  ELSE
+    RETURN .f.
+  ENDIF
+  IF EVAL(m_browse1:SkipBlock,1)==0
+    IF EVAL(m_browse1:SkipBlock,-1)==0
+      BeepErr();WaitMessage("Видалена остання строка")
+      RETURN .f.
+    ELSE
+      IF  M_browse1:RowPos<>1
+        m_browse1:RowPos:=m_browse1:RowPos-1
+      ENDIF
+    ENDIF
+  ENDIF
+  m_browse1:RefreshAll()
+ENDIF
+Return .t.
+STATIC Function sp10(a_data,a_get,n_pole)
+  LOCAL i:=n_pole
+  LOCAL l:=Sp10->(Sp_VL("SP10A"))
+IF l
+    Sp10->(DS(a_data[3]))
+    a_data[11]:=Sp10->stavka
+    a_data[4]:=Sp10->grafik
+    n_pole:=4;a_get[n_pole]:Display()
+    n_pole:=11;a_get[n_pole]:Display()
+    n_pole:=i
+    RETURN .t.
+ENDIF
+RETURN .f.
+STATIC Function KodOpl()
+  LOCAL a_mass:={},n_win,n_winold:=WSELECT()
+  LOCAL oCurGet:=GETACTIVE ( ),b_block:={|x|SayBol(x)}
+  LOCAL m_var:=oCurGet:VarGet(),i,m_answer,n
+
+IF .not.EMPTY(SayBol(m_var))
+   RETURN .t.
+ENDIF
+SavePar()
+n_win:=WOPEN(2,20,23,60)
+@0,0,MAXROW(),MAXCOL() BOX B_SINGLE+" " COLOR "w/b"
+WSELECT(n_win)
+@1,1 SayDisp PADC("Види непрацездатностi",MAXCOL()-2) COLOR "GR+/B"
+FOR i:=1 TO LEN(a_boln)
+  AADD(a_mass,a_boln[i,2])
+NEXT
+m_answer:=EditMass(a_mass,,,,,b_block,24)
+WCLOSE()
+WSELECT(n_winold)
+SavePar(1)
+RETURN .t.
+STATIC Function SayBol(var1)
+LOCAL i:=ASCAN(a_boln,{|x|(x[1]==var1)})
+IF i==0
+  return SPACE(20)
+ENDIF
+return a_boln[i,2]
+STATIC Function SayItog1(a_data,a_get)
+local i
+LOCAL m_otdn:=0
+LOCAL m_sum:=0
+for i = 13 to 28 step 3
+  m_otdn+=a_data[i+1]
+  m_sum+=a_data[i+2]
+next
+// todo
+@a_get[17]:row+5,a_get[17]:col-1 SayDisp m_otdn PICTURE "999.9" COLOR "GR+/b"
+@a_get[18]:row+5,a_get[18]:col SayDisp m_sum PICTURE a_get[18]:picture COLOR "GR+/b"
+IF m_otdn<>0
+  @a_get[17]:row+5,25 SayDisp  m_sum/m_otdn PICTURE a_get[18]:picture COLOR "GR+/b"
+ENDIF
+RETURN .T.
+STATIC FUNCTION TaxOtdn(m_grafik)
+LOCAL s_day,i:=DAY(boln2->ddoc1),n:=LASTDAYOM(boln2->ddoc1),;
+m_day:=boln2->ddoc1,m_otdn:=0
+IF .NOT.EMPTY(boln2->ddoc1).AND..NOT.EMPTY(boln2->ddoc2)
+  IF sp20->(DS(STR(YEAR(boln2->ddoc1),4)+m_grafik))
+    s_day:=Sp20->(FIELDGET(FIELDNUM("SHS"+STRZERO(MONTH(boln2->ddoc1),2))))
+    DO WHILE .t.
+      IF ASC(SUBSTR(s_day,i,1))<>0
+        m_otdn++
+      ENDIF
+      i++;m_day++
+      IF i>n.OR.m_day>boln2->ddoc2
+        EXIT
+      ENDIF
+    ENDDO
+    boln2->otdn01:=m_otdn;TaxSum()
+  ELSE
+    DispError("Не знайден графiк працi "+m_grafik+";для року "+STR(YEAR(boln2->ddoc1),4))
+  ENDIF
+ENDIF
+RETURN .t.
+STATIC FUNCTION TaxSum()
+boln2->sum5:=boln2->prc/100*boln2->otdn01*boln2->sum4
+RETURN .t.
+STATIC FUNCTION TaxBoln(a_data)
+LOCAL m_ddoc1:=a_data[8],m_ddoc2:=a_data[9]
+LOCAL m_sum1:=0,m_sum2:=0,m_kvo
+// Средняя зар плата
+
+IF (a_data[14]+a_data[17]+a_data[20]+a_data[23]+a_data[26]+a_data[29])<>0
+  m_sum1:= (a_data[15]+a_data[18]+a_data[21]+a_data[24]+a_data[27]+a_data[30]);
+  /(a_data[14]+a_data[17]+a_data[20]+a_data[23]+a_data[26]+a_data[29])
+ENDIF
+
+DO WHILE .t.
+  boln2->(DBAP())
+  boln2->vnumc:=boln1->vnumc
+  boln2->ddoc1:=m_ddoc1
+  boln2->ddoc2:=MIN(m_ddoc2,EOM(m_ddoc1))
+  TaxOtdn(a_data[4])
+  boln2->prc:=a_data[10]
+// Отменен расчет двойной тарифной ставки
+/*
+  IF a_data[12]<>0
+    boln2->sum4:=MIN(2*a_data[12],m_sum1)
+  ELSE
+    IF sp20->(DS(STR(YEAR(boln2->ddoc1),4)+a_data[4]))
+      m_kvo:=Sp20->(FIELDGET(FIELDNUM("OTDN"+STRZERO(MONTH(boln2->ddoc1),2))))
+      IF m_kvo<>0
+        Boln2->sum4:=MIN(2*a_data[11]/m_kvo,m_sum1)
+      ENDIF
+    ENDIF
+  ENDIF
+*/
+ boln2->sum4:=m_sum1
+  TaxSum()
+  m_ddoc1:=boln2->ddoc2+1
+  IF m_ddoc1>m_ddoc2
+    EXIT
+  ENDIF
+ENDDO
+RETURN .t.
+STATIC FUNCTION DelBoln2(m_browse1)
+  SELE boln2
+  EVAL(m_browse1:GotopBlock)
+  DO WHILE boln2->vnumc==boln1->vnumc
+    boln2->(DBDELETE())
+    boln2->(DBSKIP())
+  ENDDO
+return .t.
+STATIC FUNCTION ReadStroka(m_browse1,a_get1,a_say1)
+  LOCAL  m_buf,m_block,m_valid1,i
+  m_block:=a_get1[1]:block;m_buf:=EVAL(m_block)
+  m_valid1:=a_get1[1]:postBlock;a_get1[1]:postBlock:={|x|IF(EMPTY(EVAL(x:block)),.t.,EVAL(m_valid1,x))}
+  a_get1[1]:block:={|x|IF(x==NIL,m_buf,m_buf:=x)}
+    DO WHILE .t.
+      STABILIZE BROWSE m_browse1
+      SET ESCAPE ON
+      m_buf:=EVAL(m_block)
+      a_get1[1]:row:=ROW();a_get1[1]:col:=COL()
+      ReadMy({a_get1[m_browse1:ColPos]},;
+          IF(a_say1[1]#NIL.AND.VALTYPE(a_say1[1][1])=="A",a_say1[1],NIL))
+      SET ESCAPE OFF
+      IF LASTKEY()<>K_ESC.AND..NOT.EMPTY(m_buf)
+        IF boln2->(NetDbAp())
+          boln2->vnumc:=boln1->vnumc
+          EVAL(m_block,m_buf)
+          m_browse1:right();m_browse1:refreshCurrent()
+          DO WHILE .t.
+            STABILIZE BROWSE m_browse1
+            a_get1[m_browse1:ColPos]:Row:=ROW();a_get1[m_browse1:ColPos]:col:=COL()
+            ReadMoDal({a_get1[m_browse1:ColPos]})
+            IF LASTKEY()==K_UP.AND.m_browse1:colPos<>1
+                DO WHILE .t.
+                  m_browse1:left()
+                  IF a_get1[m_browse1:colPos]:PreBlock==NIL.OR.EVAL(a_get1[m_browse1:colPos]:PreBlock).OR.m_browse1:colPos==1
+                    EXIT
+                  ENDIF
+                ENDDO
+                LOOP
+            ENDIF
+            IF m_browse1:ColPos==m_browse1:ColCount
+              EXIT
+            ENDIF
+            m_browse1:right();m_browse1:refreshCurrent()
+          ENDDO
+        ELSE
+          DispError("Невозможно добавить запись")
+        ENDIF
+        m_browse1:panHome();m_browse1:down()
+        boln2->(DbUnLock())
+      ELSE
+        lApnd:=.f.;a_get1[1]:block:=m_block;a_get1[1]:postBlock:=m_valid1
+        EXIT
+      ENDIF
+    ENDDO
+RETURN .t.
+STATIC FUNCTION TaxMnt1(a_data,a_get,n_pole,var1,p)
+LOCAL i:=n_pole
+  @0,1 SAY "**********************"
+  ?"----------------------**********************"
+
+IF .NOT.((EMPTY(LEFT(p,2)).AND.EMPTY(RIGHT(p,2))).OR.(LEFT(p,2)>="01".AND.LEFT(p,2)<="12".AND.RIGHT(p,2)<="99".AND.RIGHT(p,2)>="00"))
+  RETURN .f.
+ENDIF
+  @0,2 SAY "**********************"
+IF .NOT.EMPTY(a_data[var1])
+  @0,3 SAY a_data[var1]
+  Fl01->(DS(mnt_syear(a_data[var1])+a_data[3]+"911"))
+
+  @10,20 say mnt_syear(a_data[var1])+a_data[3]+"911" color "r/n"
+  @11,20 say fl01->(found())  color "r/n"
+  @0,0 SAY "**********************"
+
+  n_pole:=var1+1
+  a_data[n_pole]:=fl01->(FIELDGET(FIELDNUM("OTDN"+mnt_smonth(a_data[var1]))))
+  a_get[n_pole]:Display()
+  n_pole:=n_pole+1
+  a_data[n_pole]:=fl01->(FIELDGET(FIELDNUM("SUM0"+mnt_smonth(a_data[var1]))))
+  a_get[n_pole]:Display()
+ENDIF
+n_pole:=i
+SayItog1(a_data,a_get)
+RETURN .T.
+STATIC FUNCTION tax03(a_data,a_get,n_pole)
+LOCAL i:=n_pole
+n_pole:=LEN(a_data)
+a_data[n_pole]:=fvnum->mnt
+a_get[n_pole]:display()
+n_pole:=i
+RETURN .T.
+STATIC FUNCTION TaxDdoc1(a_data,a_get,n_pole,p)
+LOCAL i:=n_pole
+Local data1 := mnt_dtod(p)
+IF EMPTY(p)
+  RETURN .f.
+ENDIF
+FOR n_pole:=13 TO 28 step 3
+  data1:=mnt_dec(data1)
+a_data[n_pole]:=data1
+a_get[n_pole]:Display()
+NEXT
+n_pole:=i
+RETURN .T.
+STATIC Function EDITBoln2(m_browse1,a_get1,a_say1,m_state,l_exit)
+LOCAL m_key,l_delete:=.f.
+              select boln2
+              m_browse1:rowPos:=1;m_browse1:colPos:=1;m_browse1:configure()
+              lApnd:=.f.;EVAL(m_browse1:GotopBlock)
+              IF .NOT.boln2->vnumc==boln1->vnumc //m_browse1:hitBottom
+                IF ANSWERu("Вiдсутнi строки розрахунку!;Будемо вводити ?")<>YES
+                  select boln1;m_state:="0"
+                  RETURN .f.
+                ELSE
+                  lApnd:=.t.
+                ENDIF
+              ENDIF
+              DO WHILE .t.
+//                Display Browse m_browse1
+                  m_browse1:refReshCurrent()
+                  m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{3,3})
+                  STABILIZE BROWSE m_browse1
+                  m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{6,1})
+                  m_browse1:ColorRect({m_browse1:RowPos,m_browse1:ColPos,m_browse1:RowPos,m_browse1:ColPos},{2,2})
+                m_key:=IF(.NOT.lApnd,INKEY(0),K_INS)
+                  DO CASE
+                    CASE m_key = K_F2
+//                        PrintBoln(a_data)
+                    CASE m_key = K_ALT_1;SAVEPAR();SpBrow("SP20");SavePar(1)
+                    CASE m_key==K_ESC.OR.m_key==K_F12
+                       m_state:="0";l_exit:=.f.;EXIT
+                    CASE m_key = K_TAB.OR.m_key = K_SH_TAB
+                          m_state:="0"
+                        EXIT
+                  DEAL BROWSE m_browse1 KEY m_key
+                  CASE m_key==K_ENTER   // .OR.Lapnd
+                        IF NetRLOCK()
+                          m_browse1:refreshCurrent()
+                          STABILIZE BROWSE m_browse1
+                          a_get1[m_browse1:ColPos]:Row:=ROW();a_get1[m_browse1:ColPos]:col:=COL()
+                          ReadMy({a_get1[m_browse1:ColPos]},;
+                          IF(a_say1[m_browse1:ColPos]#NIL.AND.VALTYPE(a_say1[m_browse1:ColPos][1])=="A",a_say1[m_browse1:ColPos],NIL))
+                          dbUNLOCK()
+                        ELSE
+                          DispError("Невозможно заблокировать запись")
+                        ENDIF
+                  CASE m_Key == K_DEL
+                      DelStroka(@m_browse1)
+                  CASE m_Key == K_INS
+                      m_browse1:panHome();m_browse1:goBottom()
+                      STABILIZE BROWSE m_browse1
+                      lApnd:=.t.;m_browse1:down();m_browse1:refreshAll()
+                      STABILIZE BROWSE m_browse1
+                      ReadStroka(@m_browse1,@a_get1,@a_say1)
+                      m_browse1:goBottom();m_browse1:refreshAll()
+                  ENDCASE
+              ENDDO
+              m_browse1:RefreshCurrent()
+              Stabilize Browse m_browse1
+              m_browse1:autolite:=.f.
+              m_browse1:DeHilite()
+              select boln1
+RETURN .t.
+STATIC FUNCTION zan01(m_mnt1)
+LOCAL m_gauge,m_recno:=boln1->(RECNO())
+LOCAL m_days,l_first,m_sum,k_boln1,k_bolndbt
+LOCAL n_kvo
+SavePar()
+NET USE (m_syspath+"memvar") INDEX  (m_syspath+"memvar") new ALIAS myvar
+    k_boln1  :=RESTVAR1("k_boln1","ZR")
+    k_bolndbt:=RESTVAR1("k_bolndbt","ZR")
+CLOSE myvar
+
+m_gauge:=InitGauge("Занесення лiкарняних",2)
+USE (m_bufpath+"fz1") NEW
+USE (m_bufpath+"fz2") NEW
+USE (m_bufpath+"fz3") NEW
+fvnum->(NetRlock())
+boln1->(DBGOTOP())
+m_days:=0
+DO WHILE .not.boln1->(EOF())
+ IF (boln1->mnt3==m_mnt1)
+  boln2->(DS(boln1->vnumc))
+  l_first:=.t.
+  n_kvo:=KVO_DAY
+  m_days:=0
+  DO WHILE boln2->vnumc==Boln1->vnumc.AND..NOT.boln2->(EOF())
+    Fz1->(DBAP())
+    fz1->vnum1:=fvnum->vnum1
+    fz1->mnt:=Boln1->mnt3
+    fz1->ddoc:=boln2->ddoc1
+    fz1->ndoc:=VAL(RIGHT(boln1->num,5))
+    fz1->npch:=601
+    fz1->oper:=m_oper
+    fz1->dvv:=DATE()
+    fz1->vdoc:=21
+
+//    if m_days+boln2->otdn01<=n_kvo
+      fvnum->vnum1:=fvnum->vnum1+1
+      fz2->(DBAP())
+      fz2->vnum1:=fz1->vnum1
+      fz2->ksash:=k_bolndbt
+      fz2->tabn:=boln1->tabn
+      fz2->otdn:=boln2->otdn01
+      fz2->vnum2:=fvnum->vnum2
+      fvnum->vnum2:=fvnum->vnum2+1
+      fz3->(DBAP())
+      fz3->vnum2:=fz2->vnum2
+      fz3->kopu:=boln1->kopu
+      fz3->sum:=boln2->sum5
+
+/*
+      m_days+=boln2->otdn01
+    else
+      IF m_days<  n_kvo
+        fvnum->vnum1:=fvnum->vnum1+1
+        fz2->(DBAP())
+        fz2->vnum1:=fz1->vnum1
+        fz2->ksash:=k_bolndbt
+        fz2->tabn:=boln1->tabn
+        fz2->otdn:=n_kvo-m_days
+	m_otdn:=n_kvo-m_days
+        fz2->vnum2:=fvnum->vnum2
+        fvnum->vnum2:=fvnum->vnum2+1
+        fz3->(DBAP())
+        fz3->vnum2:=fz2->vnum2
+        fz3->kopu:=k_boln1
+        fz3->sum:=boln2->sum5*fz2->otdn/boln2->otdn01
+        m_sum:=fz3->sum
+
+        fvnum->vnum1:=fvnum->vnum1+1
+        fz2->(DBAP())
+        fz2->vnum1:=fz1->vnum1
+        fz2->ksash:=boln1->ksash
+        fz2->tabn:=boln1->tabn
+        fz2->otdn:=boln2->otdn01-m_otdn
+        fz2->vnum2:=fvnum->vnum2
+        fvnum->vnum2:=fvnum->vnum2+1
+        fz3->(DBAP())
+        fz3->vnum2:=fz2->vnum2
+        fz3->kopu:=boln1->kopu
+        fz3->sum:=boln2->sum5-m_sum
+      ELSE
+        fvnum->vnum1:=fvnum->vnum1+1
+        fz2->(DBAP())
+        fz2->vnum1:=fz1->vnum1
+        fz2->ksash:=boln1->ksash
+        fz2->tabn:=boln1->tabn
+        fz2->otdn:=boln2->otdn01
+        fz2->vnum2:=fvnum->vnum2
+        fvnum->vnum2:=fvnum->vnum2+1
+        fz3->(DBAP())
+        fz3->vnum2:=fz2->vnum2
+        fz3->kopu:=boln1->kopu
+        fz3->sum:=boln2->sum5
+      ENDIF
+  ENDIF
+*/
+
+
+    boln2->(DBSKIP())
+  ENDDO
+endif
+  boln1->(DBSKIP())
+  m_gauge:=DispGauge(m_gauge,Boln1->(RECNO()/LASTREC()))
+ENDDO
+boln1->(DBGOTO(m_recno))
+DelGauge(m_gauge)
+Fvnum->(DBUNLOCK())
+CLOSE BASE FZ1,FZ2,FZ3
+IndBd(m_bufpath)
+SELE boln1
+SavePar("1")
+RETURN .T.
+
+STATIC FUNCTION PrBoln()
+LOCAL n_line :=0,i
+LOCAL  n     :=0
+LOCAL m_proc1  :=0
+LOCAL m_count  :=0
+LOCAL   m_page    := 0 //Номер страницы
+LOCAL   m_hsh      := 0 //Высота (количество строк) шапки (заголовка страницы)
+local   m_left_margin   := 0
+LOCAL   m_ktab     := 0  //последняя позиция шапки
+LOCAL   xcoor[16],m_recno,i1,j,l,m_screen,m_proc,m_file,s_sum:=0
+LOCAL   m_string   := '',m_key1,m_key2,GetList:={},m_mnt:="    "
+
+IF .NOT.GetType(@m_mnt)
+  returN .f.
+ENDIF
+
+m_recno:=boln1->(RECNO())
+IF EMPTY(m_mnt)
+i1:=ALERT("Друкувати",{"З першої строки","З поточної","Вибiркова","Вiдмовитися"},"n/bg,w/b" )
+DO CASE
+  CASE i1==1
+    boln1->(DBGOTOP())
+    j:=1
+    l:=boln1->(LASTREC())
+  CASE i1==2
+    j:=1
+    l:=boln1->(LASTREC())-boln1->(RECNO())
+   CASE i1==3
+    m_screen  := SAVESCREEN(INT((MAXROW()-4)/2),5,INT((MAXROW()-4)/2)+6,77)
+    m_key1:=boln1->num
+    m_key2:=BLANK(boln1->num,.t.)
+    @INT((MAXROW()-4)/2),5,INT((MAXROW()-4)/2)+5,75 BOX B_DOUBLE+" " COLOR "n/bg"
+    @INT((MAXROW()-4)/2)+1,6 SayDisp PADC( 'Введiть номер 1-го док. :', 68 ) COLOR "n/bg" PICTURE "@!"
+    @INT((MAXROW()-4)/2)+2,(40-INT(LEN(m_key1)/2)) GET m_key1 COLOR ("b/w,gr+/n")
+    @INT((MAXROW()-4)/2)+3,6 SayDisp PADC( 'Введiть номер 2-го док. :', 68 ) COLOR "n/bg" PICTURE "@!"
+    @INT((MAXROW()-4)/2)+4,(40-INT(LEN(m_key2)/2)) GET m_key2 COLOR ("b/w,gr+/n")
+    READ
+    RESTSCREEN( INT((MAXROW()-4)/2), 5, INT((MAXROW()-4)/2)+6, 77, m_screen )
+    IF(LASTKEY()!=K_ESC)
+      LOCA FOR boln1->num==m_key1
+      IF .NOT.FOUND()
+        DispError(" Лiкарняний  "+m_key1+" не знайден ")
+        DBGOTO(m_recno)
+        RETURN .f.
+      ENDIF
+    ELSE
+      RETURN .f.
+    ENDIF
+    j:=1
+    l:=LASTREC()-RECNO()
+OTHERWISE
+  RETURN .f.
+ENDCASE
+ELSE
+j:=1
+l:=boln1->(LASTREC())
+boln1->(DBSETFILTER({||boln1->mnt3==m_mnt},"boln1->mnt3==m_mnt"))
+boln1->(DBGOTOP())
+ENDIF
+pShapka('BLN',@m_hsh,@m_ktab,@xcoor,@m_left_margin,@m_string)
+IF GetParPrn(4)==2
+    m_string:=CHARREPL("┌│├└┼┴┬─┘┤┐",m_string,"-||-|----||")
+ENDIF
+m_proc := InitGauge("Друк рееєстру ",2)
+m_file:=TEMPFILE(m_temppath,"prn");FERASE(m_file);OpenPrn(m_file)
+SetWidthPrn(m_ktab)
+DO WHILE  .NOT.Boln1->(EOF())
+
+   IF  ( ! PrnOnLine())
+        boln1->(DBGOTO(m_recno))
+        RETURN .f.
+   ENDIF
+    IF( INKEY() == K_ESC )
+      BeepErr()
+      IF( ANSWERu("Прервати друк,;Ви впевненi ?")==YES)
+        EXIT
+      ENDIF
+      KEYBOARD   ""
+    ENDIF
+    endpage(@m_page,m_left_margin,m_hsh,m_ktab,m_string)
+
+    @PROW(),xcoor[1] SAY j PICTURE "9999"
+    @PROW(),xcoor[2] SAY boln1->tabn
+    @PROW(),xcoor[3] SAY LEFT(_FIO(boln1->tabn),19)
+    @PROW(),xcoor[4] SAY boln1->ser
+    @PROW(),xcoor[5] SAY mnt_data(boln1->mnt1)
+    @PROW(),xcoor[6] SAY boln1->otdn01 PICTURE "99.9"
+    @PROW(),xcoor[7] SAY boln1->sum1  picture "9999.99"
+    IF boln1->otdn01+boln1->otdn02<>0
+      @PROW(),xcoor[8] SAY (boln1->sum1+boln1->sum2+boln1->sum4+boln1->sum5+boln1->sum6+boln1->sum7)/;
+(boln1->otdn01+boln1->otdn02+boln1->otdn04+boln1->otdn05+boln1->otdn06+boln1->otdn07)  picture "9999.99"
+    ENDIF
+    @PROW(),xcoor[9] SAY  2*boln1->sum3 picture "9999.99"
+    boln2->(DS(boln1->vnumc))
+    n_line := 0
+    DO WHILE boln1->vnumc == boln2->vnumc.AND..not.boln2->(EOF())
+      IF n_line<>0
+        endpage(@m_page,m_left_margin,m_hsh,m_ktab,m_string)
+      ENDIF
+     DO CASE
+     CASE  n_line==1
+        @PROW(),xcoor[3] SAY LEFT(boln1->kind,19)
+        @PROW(),xcoor[4] SAY boln1->num
+        @PROW(),xcoor[5] SAY mnt_data(boln1->mnt2)
+        @PROW(),xcoor[6] SAY boln1->otdn02 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum2  picture "9999.99"
+     CASE n_line==2
+        @PROW(),xcoor[5] SAY mnt_data(boln1->mnt4)
+        @PROW(),xcoor[6] SAY boln1->otdn04 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum4  picture "9999.99"
+     CASE n_line==3
+        @PROW(),xcoor[5] SAY mnt_data(boln1->mnt5)
+        @PROW(),xcoor[6] SAY boln1->otdn05 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum5  picture "9999.99"
+     CASE n_line==4
+        @PROW(),xcoor[5] SAY mnt_data(boln1->mnt6)
+        @PROW(),xcoor[6] SAY boln1->otdn06 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum6  picture "9999.99"
+     CASE n_line==5
+        @PROW(),xcoor[5] SAY mnt_data(boln1->mnt7)
+        @PROW(),xcoor[6] SAY boln1->otdn07 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum7  picture "9999.99"
+     ENDCASE
+     n_line++
+     @prow(),xcoor[10] SAY boln2->ddoc1
+     @prow(),xcoor[11] SAY boln2->ddoc2
+     @prow(),xcoor[12] SAY boln2->otdn01 PICTURE "999"
+     @prow(),xcoor[13] SAY boln2->prc    PICTURE "999"
+     @prow(),xcoor[14] SAY boln2->sum4   PICTURE "9999.99"
+     @prow(),xcoor[15] SAY boln2->sum5   PICTURE "9999.99"
+     s_sum +=boln2->sum5
+     boln2->(DBSKIP())
+   ENDDO
+     IF n_line<=1
+        @PROW()+1,xcoor[3] SAY LEFT(boln1->kind,19)
+        @PROW(),xcoor[4] SAY boln1->num
+        @PROW(),xcoor[5] SAY mnt_data(boln1->mnt2)
+        @PROW(),xcoor[6] SAY boln1->otdn02 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum2  picture "9999.99"
+     ENDIF
+     IF  n_line<=2
+        @PROW()+1,xcoor[5] SAY mnt_data(boln1->mnt4)
+        @PROW(),xcoor[6] SAY boln1->otdn04 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum4  picture "9999.99"
+     ENDIF
+     IF  n_line<=3
+        @PROW()+1,xcoor[5] SAY mnt_data(boln1->mnt5)
+        @PROW(),xcoor[6] SAY boln1->otdn05 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum5  picture "9999.99"
+     ENDIF
+     IF n_line<=4
+        @PROW()+1,xcoor[5] SAY mnt_data(boln1->mnt6)
+        @PROW(),xcoor[6] SAY boln1->otdn06 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum6  picture "9999.99"
+     ENDIF
+     IF n_line<=5
+        @PROW()+1,xcoor[5] SAY mnt_data(boln1->mnt7)
+        @PROW(),xcoor[6] SAY boln1->otdn07 PICTURE "99.9"
+        @PROW(),xcoor[7] SAY boln1->sum7  picture "9999.99"
+     ENDIF
+ m_proc:=DispGauge(m_proc,j++/l)
+ Boln1->(DBSKIP())
+ENDDO
+@prow()+1,xcoor[15] SAY s_sum   PICTURE "999999.99"
+@prow()+1,0 SAY ""
+ClosePrn()
+boln1->(DBGOTO(m_recno))
+DelGauge(m_proc)
+MyPrintFile(m_file)
+/*
+IF SPOOLACTIV().AND.SPOOLCOUNT()<6
+  SPOOLADD(m_file)
+ELSE
+ DispError("Распечатка в фоновом режиме невозможна")
+ PRINTFILE(m_file,.t.)
+ENDIF
+*/
+RETURN .T.
+STATIC FUNCTION pShapka(m_nmflsh1,m_hsh,m_ktab,xcoor,m_left_margin,m_string)
+
+#define   m_maxlong     254            //  максимальная длина шапки
+#define   m_sh1tab       "└"           //  символ начала таблицы
+#define   m_sh2tab       "┴"           //  символ середины таблицы
+#define   m_sh3tab       "┘"           //  символ конца таблицы
+
+LOCAL lnsh[ 40 ],i,m_kvstlb:=0,m_ntab:=0    //  построчный образ шапки
+screen->(DS("R"+m_nmflsh1))
+m_string:=screen->vd
+m_hsh = MLCOUNT( m_string,m_maxlong )                //  подсчитали к-во строк
+FOR  i = 1 TO m_hsh
+     lnsh[ i ] = MEMOLINE( m_string, m_maxlong, i,,.T. ) // разбили шапку по строкам
+     lnsh[ i ] = MEMOTRAN( lnsh[ i ], "",)
+NEXT
+* определение последней значащей строки шапки
+i = m_hsh                                         // # посл строки таблицы
+DO  WHILE  (  AT( m_sh1tab, lnsh[ i ]  ) = 0    .AND. i > 0 )
+      i = i - 1
+ENDDO
+m_hsh  = i                                   // переопределили высоту шапки
+m_ntab = AT( m_sh1tab, lnsh[ m_hsh ]  )        // позиция начала таблицы
+m_ktab = AT( m_sh3tab, lnsh[ m_hsh ]  )        // позиция завершения таблицы
+IF m_ntab = 0 .OR. m_ktab = 0                  // определение корректности шапки
+?'считанная шапка  - ???????'
+   RETURN(.F.)
+**  окончить подпрограмму !!!!!!
+ENDIF
+IF  m_ntab > 1                                 // сдвигать шапку влево
+    FOR  i = 1 TO m_hsh
+      lnsh[ i ] = SUBSTR( lnsh[ i ], m_ntab, m_ktab)
+    NEXT
+    m_ktab = m_ktab - m_ntab + 1               // переопределяем нач и
+    m_ntab = 1                                 // конец шапки
+ENDIF
+m_kvstlb = 1                                   // подсчет к-ва столбцов
+xcoor[ 1 ] = 1 +  m_left_margin                //  координата X1
+FOR  i = m_ntab  TO  m_ktab
+     IF ( m_sh2tab = SUBSTR( lnsh[ m_hsh ] , i, 1 ) )     // поиск столбца
+           m_kvstlb = m_kvstlb + 1                          // к-во столбцов
+           xcoor[ m_kvstlb ] = i + m_left_margin          //  координата
+     ENDIF
+NEXT
+xcoor[ m_kvstlb + 1 ] = m_ktab + m_left_margin
+m_ktab = m_ktab +  m_left_margin                      // переопределяем нач и
+m_ntab = m_ntab +  m_left_margin                      // конец шапки
+
+RETURN(.T.)
+STATIC Function GetType(M_MNT)
+LOCAL getList :={}
+SavePar()
+@11,15,15,65 BOX B_DOUBLE+" " COLOR "w/b"
+@13,16 SayDisp "Введiть мiсяць оплати "           COLOR "w/b"
+SET ESCAPE ON
+  @13,40 Get m_mnt COLOR "N/BG,GR+/N"
+  GetList[1]:block:={|x|IF(x==NIL,RIGHT(m_mnt,2)+"."+LEFT(m_mnt,2),m_mnt:=RIGHT(x,2)+LEFT(x,2))}
+  GetList[1]:picture:="99.99"
+  GetList[1]:Postblock:={||IF((Left(m_mnt,2)>="00".AND.LEFT(m_mnt,2)<="99".AND.RIGHT(m_mnt,2)>="01".AND.RIGHT(m_mnt,2)<="12").OR.EMPTY(m_mnt),.t.,.f.)}
+  READ
+SavePar(1)
+IF LASTKEY()==K_ESC
+  RETURN .f.
+ENDIF
+RETURN .t.

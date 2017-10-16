@@ -1,0 +1,13 @@
+FI main,
+   browdb,
+   docum,
+   nakl,
+   nalog,
+   rasch,
+   schet,
+   mash,
+   lzk,
+   sprav,
+   ct2us50
+OUT nakl
+LIB ct250,new

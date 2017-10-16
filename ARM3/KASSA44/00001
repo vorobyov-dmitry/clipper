@@ -1,0 +1,117 @@
+Сравнение файлов COPYKASS.PRG и H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+****** COPYKASS.PRG
+MEMVAR m_workpath,m_sprpath,m_syspath,m_bufpath,m_platpath
+STATIC k_nds1,k_nds2,k_nds3,k_ndsDbt
+STATIC k_ndsKopr,m_nds,s_nds1,s_nds2
+FUNCTION CopyKass1
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+MEMVAR m_workpath,m_sprpath,m_syspath,m_bufpath,m_platpath
+FUNCTION CopyKass1
+******
+
+****** COPYKASS.PRG
+      m_kopr1,m_size:=0,a_file:={},m_ddoc,c_disk,n_warning:=0,n_error:=0,;
+      m_prc,m_ksash1,m_kopr2,m_log,m_sum,m_scht,x1,m_kopr,m_ndoc,m_ssuda:="340"
+i:=ALERT("Выполнять учет кассы;Вы уверены?",{"Да","Нет"},"n/w,n/bg")
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+      m_kopr1,m_size:=0,a_file:={},m_ddoc,c_disk,n_warning:=0,n_error:=0,;
+      m_prc,m_ksash1,m_kopr2,m_log,m_sum,m_scht,x1,m_kopr,m_ndoc
+i:=ALERT("Выполнять учет кассы;Вы уверены?",{"Да","Нет"},"n/w,n/bg")
+******
+
+****** COPYKASS.PRG
+ENDIF
+NET USE (m_workpath+"inst1") INDEX  (m_workpath+"inst1") new ALIAS myvar
+RESTMEM m_ssuda
+CLOSE myvar
+
+/*
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+ENDIF
+/*
+******
+
+****** COPYKASS.PRG
+
+// обработка 46 счета
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+
+
+// обработка 46 счета
+******
+
+****** COPYKASS.PRG
+
+            IF fks03->kpr<"100".OR.fks03->kpr=="107"
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+
+      ENDIF
+IF (fks03->nds<>0)
+            IF fks03->kpr<"100".OR.fks03->kpr=="107"
+******
+
+****** COPYKASS.PRG
+        ENDIF
+      ENDIF
+
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+        ENDIF
+ENDIF
+
+******
+
+****** COPYKASS.PRG
+               fd1->vdoc:=1
+//               fd1->kopu:=IF(fks03->kpr=='101','098','101')
+IF fks03->kpr=='101'
+  fd1->kopu:='098'
+ELSE
+IF fks03->ndoc1<500
+  fd1->kopu:='101'
+ELSE
+  fd1->kopu:=m_ssuda
+ENDIF
+ENDIF
+//               fd1->kopu:=IF(fks03->kpr=='101','098','101')
+               fd1->ddoc:=fks04->ddoc
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+               fd1->vdoc:=1
+               fd1->kopu:=IF(fks03->kpr=='101','098','101')
+               fd1->ddoc:=fks04->ddoc
+******
+
+****** COPYKASS.PRG
+RETURN .t.
+STATIC Function InitNds1
+  NET USE (m_platpath+"NDS") READONLY NEW
+  m_nds:=nds->nds/100  //;m_nds:=m_nds/(1+m_nds)
+  k_nds1:=nds->ksash
+  k_nds2:=nds->ksash2
+  k_nds3:=nds->ksash3
+  k_ndsDbt:=nds->ksash4
+  k_ndsKopr:=nds->kopr
+  s_nds1:=ALLTRIM(nds->Scht)
+  s_nds2:=ALLTRIM(nds->Scht2)
+  CLOSE Nds
+RETURN .t.
+Function GetNdsKsash(m_ksash)
+  LOCAL m_subsch:=LEFT(m_ksash,3)
+  IF AT(m_subsch,s_nds1)<>0
+    RETURN k_nds1
+  ENDIF
+  IF AT(m_subsch,s_nds2)<>0
+    RETURN k_nds2
+  ENDIF
+RETURN k_nds3
+Function GetNdsDbt()
+  RETURN k_ndsDbt
+
+Function GetNdsKopr()
+RETURN k_ndsKopr
+EXTERNAL testfl
+****** H:\DIMA\ARM3\KASSA44\COPYKASS.PRG
+RETURN .t.
+EXTERNAL testfl
+******
+
+

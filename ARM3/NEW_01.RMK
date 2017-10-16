@@ -1,0 +1,53 @@
+#!CLS
+#!ECHO OF
+
+PATH1 = g:\prg\vlad
+PATH2 = e:\compil\obj3
+PATH3 = e:\compil
+PATH4 = e:\compil\exe
+
+makepath[.obj] = $(PATH2)
+makepath[.PRG] = $(PATH1)
+
+PATH1 = e:\arm3\DIMA
+
+$(PATH2)\DIMAN.obj : $(PATH1)\V_PR.PRG $(PATH1)\umn02.PRG  $(PATH1)\main.PRG  $(PATH1)\check1.PRG
+        ECHO COMPILE DIMA
+        clipper @diman   /m /n  /o$(PATH2)\diman /te:\ /q >$(PATH3)\diman
+
+PATH1 = e:\arm3\1_2N
+
+$(PATH2)\1_2N.obj : $(PATH1)\mash.PRG   $(PATH1)\viewms.PRG  $(PATH1)\ushet1.PRG $(PATH1)\view09.PRG
+        ECHO COMPILE 1_2N
+        clipper @1_2n     /m /n  /o$(PATH2)\1_2N /te:\ /q >$(PATH3)\1_2N
+
+PATH1 = e:\arm3\sprav
+$(PATH2)\sprav.obj : $(PATH1)\testsp1.prg $(PATH1)\my_get.prg $(PATH1)\my_print.prg
+        ECHO COMPILE SPRAV
+        clipper @sprav   /m /n  /o$(PATH2)\sprav /te:\ /q >$(PATH3)\sprav
+
+PATH1 = e:\arm3\VLAD
+
+$(PATH2)\vladn.obj : $(PATH1)\EVVODPU.PRG
+        ECHO COMPILE VLADN
+        clipper @vladn     /m /n  /o$(PATH2)\vladn /q >$(PATH3)\vladn
+
+$(PATH2)\ezrpld.obj : $(PATH1)\ezrpld.PRG
+        ECHO COMPILE EZRPLD
+        clipper @ezrpld     /m /n  /o$(PATH2)\ezrpld /q >$(PATH3)\ezrpld
+
+$(PATH2)\boln.obj : $(PATH1)\boln.PRG
+        ECHO COMPILE BOLN
+        clipper @boln     /m /n  /o$(PATH2)\boln  /q >$(PATH3)\boln
+
+
+
+PATH1 = e:\arm3\walera
+$(PATH2)\waln.obj : $(PATH1)\VVOD1.prg $(PATH1)\VVOD2.prg \
+$(PATH1)\BROWSE.prg $(PATH1)\HELP.prg
+        ECHO COMPILE WALERA
+        clipper @waln   /dNEW_VER /m /b /n  /IE:\arm3\WALERA /o$(PATH2)\waln /te:\ /q >$(PATH3)\waln
+
+$(PATH4)\raschet.exe : $(PATH2)\diman.obj $(PATH2)\1_2N.obj  $(PATH2)\sprav.obj  $(PATH2)\vladn.obj $(PATH2)\waln.obj  $(PATH2)\ezrpld.obj
+        ECHO BUILD MODULE
+        rtlink @new   >$(PATH3)\rtnew

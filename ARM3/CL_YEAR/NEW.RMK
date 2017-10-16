@@ -1,0 +1,9 @@
+
+close.obj : main.prg 
+     ECHO ŠŒˆ‹Ÿ–ˆŸ ƒ€ŒŒ›
+     clipper @CLOSE  /N/W
+
+close.exe : close.obj
+     ECHO ‘’…ˆ… ƒ€ŒŒ›
+     rtlink fi close,sprav,ct2us50 lib new,ct250
+

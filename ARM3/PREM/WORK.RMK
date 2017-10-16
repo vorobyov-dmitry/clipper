@@ -1,0 +1,11 @@
+.prg.obj:
+    clipper $< /n/w/b
+
+.obj.exe:
+  rtlink fi main,work01,sprav,ct2us50 lib new,ct250
+  cld main
+
+main.obj:   main.prg
+work01.obj:   work01.prg
+
+main.exe : main.obj work01.obj

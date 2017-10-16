@@ -1,0 +1,11 @@
+FI main,
+   prov,
+   maket,
+   viewms,
+   viewbr,
+   msh,
+   e:\compil\obj\sprav,
+   browdb,
+   ct2us50
+OUT prov
+LIB ct250,new

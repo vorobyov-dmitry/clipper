@@ -1,0 +1,9 @@
+.prg.obj:
+    clipper $< /n /m /w 
+
+.obj.exe:
+    rtlink fi ind_sp,sprav,ct2us50 lib new,CT250 
+
+ind_sp.obj:     ind_sp.prg
+
+ind_sp.exe:   ind_sp.obj

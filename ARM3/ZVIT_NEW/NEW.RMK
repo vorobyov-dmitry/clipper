@@ -1,0 +1,8 @@
+
+zvit.obj: main.prg
+     ECHO ŠŒˆ‹Ÿ–ˆŸ ƒ€ŒŒ›
+     clipper main  /ozvit   /N/W/b
+
+zvit.exe: zvit.obj
+     ECHO ‘’…ˆ… ƒ€ŒŒ›
+     rtlink fi zvit,sprav,ct2us50 lib new,ct250 OUTPUT zvit.exe

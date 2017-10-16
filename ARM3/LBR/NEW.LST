@@ -1,0 +1,61 @@
+ARMERROR..........new               ASEEK.............mnt
+BEEP..............new               BEEPERR...........new
+CALC..............calcul            CALCUL............calcul
+CONTBROWSE........lib1              DBINSERT..........lib1
+DEALBROWSE........lib1              DELGAUGE..........new
+DELMESSAGE........new               DELSCROLL.........new
+DISPGAUGE.........new               DISPMENU..........new
+DISPMESSAG........new               DISPSCROLL........new
+DISPTEXT..........new               DOSTOWIN..........lib1
+GETMONTH..........lib1              INITGAUGE.........new
+INITSCR...........lib1              INITSCROLL........new
+ISSINGLE..........new               MNT_DATA..........mnt
+MNT_DEC...........mnt               MNT_DTOC..........mnt
+MNT_DTOD..........mnt               MNT_FIELD.........mnt
+MNT_INC...........mnt               MNT_MONTH.........mnt
+MNT_SMONTH........mnt               MNT_SYEAR.........mnt
+MNT_VAL...........mnt               MNT_YEAR..........mnt
+MYALTCODE.........new               MYCDOW............lib1
+MYCMONTH..........lib1              MYCODEALT.........new
+MYDMY.............lib1              MYUPPER...........new
+NETDBAP...........new               NETDBINSER........new
+NETFLOCK..........new               NETINIT...........new
+NETRLOCK..........new               NETUSE............new
+NUMTOCHAR.........lib1              NUMTOSTR..........lib1
+PRBROW............lib1              RANGEBROWS........lib1
+RESTCUR...........lib1              RESTVAR1..........new
+SAVECUR...........lib1              SAVEPAR...........new
+SAVEVAR1..........new               SCANBROWSE........lib1
+SEARCHBROW........lib1              SEEKBROWSE........lib1
+SETBEEP...........new               SETBEEPMSG........new
+SETCHARDEL........lib1              SETCLRMSG.........new
+SETERRBEEP........new               SETLANG...........lib1
+SHADOW............new               SUMTOSTR..........lib1
+WAITMESSAG........new               WINTODOS..........lib1
+
+
+lib1              Offset: 00000010H  Code and data size: 3d77H
+  CONTBROWSE        DBINSERT          DEALBROWSE        DOSTOWIN
+  GETMONTH          INITSCR           MYCDOW            MYCMONTH
+  MYDMY             NUMTOCHAR         NUMTOSTR          PRBROW
+  RANGEBROWS        RESTCUR           SAVECUR           SCANBROWSE
+  SEARCHBROW        SEEKBROWSE        SETCHARDEL        SETLANG
+  SUMTOSTR          WINTODOS        
+
+calcul            Offset: 00004d10H  Code and data size: 259eH
+  CALC              CALCUL          
+
+new               Offset: 00007850H  Code and data size: 2c48H
+  ARMERROR          BEEP              BEEPERR           DELGAUGE
+  DELMESSAGE        DELSCROLL         DISPGAUGE         DISPMENU
+  DISPMESSAG        DISPSCROLL        DISPTEXT          INITGAUGE
+  INITSCROLL        ISSINGLE          MYALTCODE         MYCODEALT
+  MYUPPER           NETDBAP           NETDBINSER        NETFLOCK
+  NETINIT           NETRLOCK          NETUSE            RESTVAR1
+  SAVEPAR           SAVEVAR1          SETBEEP           SETBEEPMSG
+  SETCLRMSG         SETERRBEEP        SHADOW            WAITMESSAG
+
+mnt               Offset: 0000b690H  Code and data size: 589H
+  ASEEK             MNT_DATA          MNT_DEC           MNT_DTOC
+  MNT_DTOD          MNT_FIELD         MNT_INC           MNT_MONTH
+  MNT_SMONTH        MNT_SYEAR         MNT_VAL           MNT_YEAR

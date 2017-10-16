@@ -1,0 +1,15 @@
+CompOptions := /m /n /w /b
+
+.prg.obj:
+    clipper $< $(CompOptions)
+
+main.obj:   main.prg
+ost.obj:   ost.prg
+docum.obj:  docum.prg
+browdb.obj: browdb.prg
+
+
+ost.exe : main.obj  docum.obj browdb.obj ost.obj
+        ECHO BUILD MODULE
+        rtlink fi main,docum,browdb,ost,nakl,mash,nalog,rasch,sprav,ct2us50 lib new,ct250 out ost
+        cld ost 7

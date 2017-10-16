@@ -1,0 +1,10 @@
+.prg.obj:
+    clipper $< /n
+
+.obj.exe:
+  rtlink fi dohod,sprav,ct2us50 lib new,ct250
+
+
+dohod.obj:   dohod.prg
+
+dohod.exe : dohod.obj 

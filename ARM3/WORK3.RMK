@@ -1,0 +1,13 @@
+.prg.obj:
+    clipper $< /n /m /w 
+
+.obj.exe:
+    rtlink fi main,ushet1,viewms,ms26,sys,sprav,ct2us50 lib new,CT250 out uchet
+
+main.obj:     main.prg
+ushet1.obj:     ushet1.prg
+viewms.obj:    viewms.prg
+ms26.obj :  ms26.prg
+my_print.obj:  my_print.prg
+
+uchet.exe:   main.obj ushet1.obj viewms.obj my_print.obj ms26.obj

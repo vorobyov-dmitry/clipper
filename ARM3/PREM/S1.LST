@@ -1,0 +1,30 @@
+
+Structure for database: E:\ARM2\PREM\PREM.DBF
+Number of data records:     359
+Date of last update   : 02/08/99
+Field  Field Name  Type       Width    Dec    Index
+    1  TABN        Character      4            
+    2  PRC         Numeric        3            
+    3  OTDN1       Numeric        5      1     
+    4  OTHS1       Numeric        5            
+    5  SUM1        Numeric        7      2     
+    6  PREM        Numeric        7      2     
+    7  OTDN2       Numeric        5      1     
+    8  OTHS2       Numeric        5            
+    9  SUM2        Numeric        7      2     
+   10  SUM3        Numeric        7      2     
+   11  SUM4        Numeric        7      2     
+   12  REC         Numeric        5            
+   13  SUMMAX      Numeric        7      2     
+   14  BD          Character      1            
+   15  OTDN5       Numeric        5      1     
+   16  OTHS5       Numeric        5            
+   17  SUM5        Numeric        7      2     
+   18  SUM6        Numeric        7      2     
+   19  REC2        Numeric        5            
+   20  SUMMAX2     Numeric        7      2     
+   21  BD2         Character      1            
+   22  PREM5       Numeric        7      2     
+   23  PRC5        Numeric        3            
+** Total **                     123
+

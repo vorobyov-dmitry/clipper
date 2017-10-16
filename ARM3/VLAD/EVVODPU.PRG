@@ -1,0 +1,1011 @@
+//
+//╔══════════════════════════════════════════════════════════
+//║ Модуль: eVvodPu
+//║ Автор: Koсулин В. Э.
+//║ Дата создания: 17/04/91
+//║ Содержит: процедуры eVvod1PutList, eVvod2PutList, eDoKsash,
+//║                     eCloseFil;
+//║           функции Fun1_brig , Fff1 .
+//║ Используемые внешние переменные:
+//║     m_syspath , m_sprpath , m_vdoc , VVOD_CLR , msg_clr ,
+//║     m_bufpath, p_npr,  m_oper
+//║ Используемые процедуры и функции:
+//║     Wait_Mig, f014_1, a61, InitClock, BuhMonth, Window.
+//║ Используемые файлы и внешние устройства:
+//║     sp_pl1.dbf, sp_pl2.dbf,fvnum.dbf, fz1.dbf, fz1ae.dbf, fz1ap.dbf,
+//║     fz1at.dbf, fz2.dbf, fz2a.dbf, fz3.dbf,
+//║     SP01.dbf, sp44.dbf, SP08.dbf, SP09.dbf, SP10.dbf, SP13A.dbf,
+//║     INV_A.dbf, sovhoz.dbf,
+//║     vvf-4c-1.scr , vvf-4c-2.scr , vvf-4c2p.scr .
+//║ Побочные эффекты: возможно изменение m_vdoc.
+//║ Ключи компиляции: /m /n .
+//║ Примечания: классность считается по автомобиле-дням или по времени
+//║             в наряде всего в зависимости от значения поля sovhoz->avtodni.
+//╚═══════
+//
+
+#include "BUH.ch"
+// #include "inkey.ch"
+// #include "set.ch"
+// #include "setcurs.ch"
+#include "dbedit.ch"
+// #DEFINE VVOD_CLR    'w/b,gr+/n,,,n/w'
+
+//
+//╔══════════════════════════════════════════════════════════
+//║ Процедура: eVvod1PutList
+//║ Автор: Косулин В. Э.
+//║ Дата разработки: 15/04/91
+//║ Параметры: нет.
+//║ Назначение: Ввод путевого листа грузового автомобиля без прицепа.
+//║ Используемые внешние переменные:
+//║     m_syspath , m_sprpath , m_vdoc , VVOD_CLR , msg_clr ,
+//║     m_bufpath, p_npr,  m_oper
+//║ Используемые процедуры и функции:
+//║     Wait_Mig, eCloseFil, f014_1, a61, InitClock, BuhMonth,
+//║     fun1_brig, eCloseFil, eDoKsash .
+//║ Используемые файлы и внешние устройства:
+//║     sp_pl1.dbf,fvnum.dbf, fz1.dbf, fz1ae.dbf, fz1ap.dbf,
+//║     fz1at.dbf, fz2.dbf, fz2a.dbf, fz3.dbf,
+//║     SP01.dbf, sp44.dbf, SP08.dbf, SP09.dbf, SP10.dbf, SP13A.dbf,
+//║     INV_A.dbf, sovhoz.dbf,
+//║     vvf-4c-1.scr , vvf-4c-2.scr.
+//║ Побочные эффекты: возможно изменение m_vdoc.
+//║ Примечания: классность считается по автомобиле-дням или времени
+//║             в наряде всего в зависимости от значения поля sovhoz->avtodni.
+//╚═══════
+//
+MEMVAR m_sprpath,m_syspath,m_bufpath,arr1,m_vdoc
+MEMVAR p_npr,M_OPER,p_help_code,m_uchpath
+FUNCTION S_vv039 ()
+
+   // вычисляемые значения
+   LOCAL m_pgob   := 0             /* общий пробег */
+   LOCAL m_vyp    := 0             /* выполнено ткм., всего */
+   LOCAL m_kl_kod := '   '         /* классность водителя, код оплат */
+   LOCAL m_kl_sum := 0             /* классность водителя, сумма */
+   LOCAL m_otdn   := { 0 , 0 , 0 , 0 , 0 }     /* отработано дней */
+
+   LOCAL m_chas   := 0             /* сумма отработанных часов */
+   LOCAL KolKsash := 0             /* количество введенных шифров затрат */
+   LOCAL KolKodOpl:= 0             /* количество введенных кодов оплат */
+
+   LOCAL NewList  := .F.           /* флаг перехода на ввод нового
+                                      путевого листа */
+
+   LOCAL val1     := ' '           /* 1-й параметр функции f_valid */
+   LOCAL val2     := ' '           /* 2-й параметр функции f_valid */
+   LOCAL val3     := ' '           /* 3-й параметр функции f_valid */
+   LOCAL val4     := ' '           /* 4-й параметр функции f_valid */
+   LOCAL m_sum    :=0,s_files:={}              /* cумма для вычисления классности по зароботку */
+   LOCAL l_stavka:=.t.,GetList:={},GetList1:={}
+   LOCAL Soob := 'один шифр затрат       ' /*текст сообщения о режиме ввода */
+   LOCAL Soob1:= "            "
+   LOCAL MaxKolKsash := 1        /* максимальное количество шифров затрат */
+   LOCAL m_vnum1,m_vnum2,m_str1,m_str2         /* внутренние номера */
+
+   LOCAL i := 0 , i1 := 0        /* параметры цикла */
+   LOCAL VarGet [55] [8]         /* массив, у которого
+                                      первая координата - значение GET,
+                                      вторая - PICTURE,
+                                      третья - Y-координата,
+                                      четвертая -  X-координата,
+                                      пятая-восьмая - параметры
+                                                      ф-ии fun_brig */
+
+   // предопределенные значения полей
+
+   LOCAL   arr1:={{"Hомер пачки",0,3,{||.T.}},;
+                  {"Код подразделения",SPACE(2),2,{||sp01->(SP_vl("SP01","2"))}},;
+                  {"Гаражный номер",SPACE(5),5,{||INV_A->(sp_vl("INV_A","2"))}},;
+                  {"Табельный номер",SPACE(4),4,{||SP10->(SP_vl("SP10","2"))}},;
+                  {"Шифр затрат",SPACE(7),7,{||sp44->(SP_vl('SP44',"2"))}},;
+                  {"Код оплат"  ,SPACE(3),3,{||SP08->(SP_vl('SP08',"2"))}}}
+
+   LOCAL m_str1a:="",l_ekspl:=.f.
+   LOCAL m_schtgsm:=ALLTRIM(GetGsm())
+
+
+   Wait_Mig ()
+// Для контроля марки топлива
+   NET USE (m_syspath+"sovhoz") NEW
+l_stavka:=IF(ASCAN(sovhoz->(DBSTRUCT()),{|P|UPPER(p[1])=='LSTAVKA'})<>0,sovhoz->lstavka,.T.)
+//  CLOSE sovhoz
+
+   NET USE (m_syspath+"sp_pl1") INDEX (m_syspath+"sp_pl1") NEW
+   dbGoTop ()
+   i := 1
+
+   // инициализация массива
+   DO WHILE .NOT. Eof ()
+      VarGet [ i ] [ 1 ] := If ( Alltrim ( sp_pl1->typ ) == 'N' , ;
+             0 , Space ( Len ( Alltrim ( sp_pl1->picture ) ) ) )
+      VarGet [ i ] [ 2 ]   := sp_pl1->picture
+      VarGet [ i ] [ 3 ]   := sp_pl1->p_y
+      VarGet [ i ] [ 4 ]   := sp_pl1->p_x
+      VarGet [ i ] [ 5 ]   := sp_pl1->p_param1
+      VarGet [ i ] [ 6 ]   := sp_pl1->p_param2
+      VarGet [ i ] [ 7 ]   := sp_pl1->p_param3
+      VarGet [ i++ ] [ 8 ] := sp_pl1->p_param4
+      SKIP
+   ENDDO
+screen->(DBSEEK('VD4C1'))
+m_str1:=screen->vd
+screen->(DBSEEK('VD4C2'))
+m_str2:=screen->vd
+SopenFiles("039",@s_files)
+SELECT Sp08
+set filter to sp08->kopu<'100'
+Sp08->(DBEVAL({||IF(sp08->p05=="1",m_str1a:=m_str1a+sp08->kopu+",","")}))
+SELECT inv_a
+SET RELATION TO inv_a->KAVT INTO SP13A
+   USE (m_BUFpath+"fvnum.dbr") NEW ALIAS fvnum
+      m_vnum1 := fvnum->vnum1
+      m_vnum2 := fvnum->vnum2
+   Use (m_bufpath+"fz1")  NEW
+   UI (m_bufpath+"fz1ae") NEW ; SET ORDER TO
+   UI (m_bufpath+"fz1ap") NEW ; SET ORDER TO
+   UI (m_bufpath+"fz1at") NEW ; SET ORDER TO
+   UI (m_bufpath+"fz2")   NEW ; SET ORDER TO
+   UI (m_bufpath+"fz2a")  NEW ; SET ORDER TO
+   UI (m_bufpath+"fz3")   NEW ; SET ORDER TO
+
+   // назначаем вызов процедуры a61 по нажатию клавиши < F9 >
+//   SET KEY K_F9 TO F014_1(@ARR1)
+//   SET KEY K_SH_F9 TO eDoKsash(@soob,@MaxKolKsash)
+GetList1:={{K_ALT_F9,{||F014_1(@ARR1)}},{K_SH_F9,{||eDoKsash(@soob,@MaxKolKsash)}},;
+{K_CTRL_F9,{||Ekspl(@l_ekspl,@soob1)}}}
+
+   Setcolor ( VVOD_CLR )
+   Set ( _SET_ESCAPE , .t. )
+   Set ( _SET_SOFTSEEK , .t. )
+//   SetCURSOR (SC_NORMAL )
+
+//   InitClock ( 0 , 60 , 0 , 69 , 30 )
+
+   // ввод предопределенных значений некоторых полей
+   f014_1 (@arr1)
+   VarGet [3] [1]  := Date ()
+
+   DO WHILE .t.
+
+      // изменение состояния ввода ( количество вводимых шифров затрат )
+      // по нажатию клавиш <Shift><F9>
+
+      // ввод одного путевого листа
+
+          // ввод первой страницы
+          VarGet [1] [1]  := arr1 [1][2]
+          VarGet [6] [1]  := arr1 [2][2]
+          VarGet [7] [1]  := arr1 [3][2]
+          VarGet [8] [1]  := arr1 [4][2]
+          CLEAR SCREEN
+          ?m_str1
+          @2,39 SAY mnt_dtoc(fvnum->mnt) COLOR "GR+/b*"
+          @ 3 , 22 SayDisp Alltrim ( p_npr )
+          Setcolor ( 'gr+/b' )
+          @0,0 SAY Soob1 COLOR "gr+/b"
+          @ 1,2 SayDisp Soob
+          Setcolor ( VVOD_CLR )
+            DO WHILE .T.
+            @ VarGet [ 1 ] [ 3 ] , VarGet [ 1 ] [ 4 ] GET VarGet [ 1 ] [ 1 ] ;
+                  PICTURE Alltrim ( VarGet [ 1 ] [ 2 ] ) ;
+                  VALID (VarGet[1][1]>0)
+            @ VarGet [ 2 ] [ 3 ] , VarGet [ 2 ] [ 4 ] GET VarGet [ 2 ] [ 1 ] ;
+                  PICTURE Alltrim ( VarGet [ 2 ] [ 2 ] ) ;
+                  VALID (VarGet[2][1]>0)
+            @ VarGet [ 3 ] [ 3 ] , VarGet [ 3 ] [ 4 ] GET VarGet [ 3 ] [ 1 ] PICTURE Alltrim ( VarGet [ 3 ] [ 2 ] )
+            @ VarGet [ 6 ] [ 3 ] , VarGet [ 6 ] [ 4 ] GET VarGet [ 6 ] [ 1 ] PICTURE Alltrim ( VarGet [ 6 ] [ 2 ] );
+                  VALID sp01->(sp_vl("SP01","2",VarGet [6][3] , VarGet [6][4] + 5,"sp01->naim1","Gr+/b"))
+            @ VarGet [ 7 ] [ 3 ] , VarGet [ 7 ] [ 4 ] GET VarGet [ 7 ] [ 1 ] PICTURE Alltrim ( VarGet [ 7 ] [ 2 ] );
+                  VALID inv_a->(sp_vl("INV_A",,VarGet [7][3] , VarGet [7][4]-33 ,"sp13a->naim13a","Gr+/b"))
+            @ VarGet [ 8 ] [ 3 ] , VarGet [ 8 ] [ 4 ] GET VarGet [ 8 ] [ 1 ] PICTURE Alltrim ( VarGet [ 8 ] [ 2 ] );
+                  VALID sp10->(sp_vl("SP10",,VarGet [8][3] , VarGet [8][4] -33,"_fio()","Gr+/b"))
+            @ VarGet [ 9 ] [ 3 ] , VarGet [ 9 ] [ 4 ] GET VarGet [ 9 ] [ 1 ] PICTURE Alltrim ( VarGet [ 9 ] [ 2 ] );
+                  VALID (EVAL({||Sp44->(DBSEEK(PADR(m_schtgsm+VarGet [ 9 ] [ 1 ],7))),SETPOS(VarGet [9][3] , VarGet [9][4]-24),DISPOUT(Sp44->naim7,"gr+/b"),Sp44->(FOUND())}))
+                 // VALID (EVAL({||->(DS("0610"+VarGet [ 9 ] [ 1 ])),SETPOS(VarGet [9][3] , VarGet [9][4]-24),DISPOUT(->naim7,"gr+/b"),->(FOUND())}))
+            @ VarGet [ 10 ] [ 3 ] , VarGet [ 10 ] [ 4 ] GET VarGet [ 10 ] [ 1 ] PICTURE Alltrim ( VarGet [10] [ 2 ] )
+            @0,0 Say m_schtgsm Color "r/n"
+            READMY(GetList,Getlist1)
+            ASIZE(GetList,0)
+            IF Lastkey () == K_ESC  /* по нажатию клавиши <ESC> -
+                                       выход из режима ввода */
+               IF ANSWER("Прекратить ввод?")==YES
+               eCloseFil (m_vnum1,m_vnum2,s_files)
+               RETURN .T.
+              ELSE
+                LOOP
+               ENDIF
+            ENDIF
+            EXIT
+           ENDDO
+          Setcolor ( VVOD_CLR )
+          SET KEY K_SH_F9 TO
+      // ввод второй страницы путевого листа
+      CLEAR SCREEN
+      ?m_str2
+      IF MaxKolKsash == 1
+         @ 1,2 SayDisp 'один шифр затрат       ' COLOR "GR+/b"
+      ELSE
+         @ 1,2 SayDisp 'несколько шифров затрат'  COLOR "GR+/b"
+      ENDIF
+      m_sum:=0
+      KolKsash := 0
+      KolKodOpl := 0
+            VarGet [ 48 ] [ 1 ] := arr1 [6][2]
+            VarGet [ 15 ] [ 1 ] := arr1 [5][2]
+            DO WHILE .T.
+                @ VarGet [15] [ 3 ] , VarGet [15] [ 4 ] GET VarGet [15] [ 1 ] PICTURE Alltrim ( VarGet [15] [ 2 ] );
+                  VALID Sp44->(sp_vl("SP44",,VarGet [15][3] , VarGet [15][4] + 7,"sp44->naim7","Gr+/b"))
+                IF MaxKolKsash > 1
+                  @ VarGet [16] [ 3 ] , VarGet [16] [ 4 ] GET VarGet [16] [ 1 ] PICTURE Alltrim ( VarGet [16] [ 2 ] )
+                  @ VarGet [17] [ 3 ] , VarGet [17] [ 4 ] GET VarGet [17] [ 1 ] PICTURE Alltrim ( VarGet [17] [ 2 ] )
+                  @ VarGet [18] [ 3 ] , VarGet [18] [ 4 ] GET VarGet [18] [ 1 ] PICTURE Alltrim ( VarGet [18] [ 2 ] )
+                  @ VarGet [19] [ 3 ] , VarGet [19] [ 4 ] GET VarGet [19] [ 1 ] PICTURE Alltrim ( VarGet [19] [ 2 ] ) ;
+                  VALID sp44->(sp_vl("SP44","2",VarGet [19][3] , VarGet [19][4] + 7,"sp44->naim7","Gr+/b"))
+                  @ VarGet [20] [ 3 ] , VarGet [20] [ 4 ] GET VarGet [20] [ 1 ] WHEN (.NOT.EMPTY(VarGet [19] [ 1 ])) PICTURE Alltrim ( VarGet [20] [ 2 ] )
+                  @ VarGet [21] [ 3 ] , VarGet [21] [ 4 ] GET VarGet [21] [ 1 ] WHEN (.NOT.EMPTY(VarGet [19] [ 1 ])) PICTURE Alltrim ( VarGet [21] [ 2 ] )
+                  @ VarGet [22] [ 3 ] , VarGet [22] [ 4 ] GET VarGet [22] [ 1 ] WHEN (.NOT.EMPTY(VarGet [19] [ 1 ])) PICTURE Alltrim ( VarGet [22] [ 2 ] )
+                  @ VarGet [23] [ 3 ] , VarGet [23] [ 4 ] GET VarGet [23] [ 1 ] WHEN (.NOT.EMPTY(VarGet [19] [ 1 ])) PICTURE Alltrim ( VarGet [23] [ 2 ] ) ;
+                  VALID sp44->(sp_vl("SP44","2",VarGet [23][3] , VarGet [23][4] + 7,"sp44->naim7","Gr+/b"))
+                  @ VarGet [24] [ 3 ] , VarGet [24] [ 4 ] GET VarGet [24] [ 1 ] WHEN(.NOT.EMPTY(VarGet [23][ 1 ])) PICTURE Alltrim ( VarGet [24] [ 2 ] )
+                  @ VarGet [25] [ 3 ] , VarGet [25] [ 4 ] GET VarGet [25] [ 1 ] WHEN(.NOT.EMPTY(VarGet [23][ 1 ])) PICTURE Alltrim ( VarGet [25] [ 2 ] )
+                  @ VarGet [26] [ 3 ] , VarGet [26] [ 4 ] GET VarGet [26] [ 1 ] WHEN(.NOT.EMPTY(VarGet [23][ 1 ])) PICTURE Alltrim ( VarGet [26] [ 2 ] )
+                  @ VarGet [27] [ 3 ] , VarGet [27] [ 4 ] GET VarGet [27] [ 1 ] WHEN(.NOT.EMPTY(VarGet [23][ 1 ])) PICTURE Alltrim ( VarGet [27] [ 2 ] )  ;
+                  VALID sp44->(sp_vl("SP44","2",VarGet [27][3] , VarGet [27][4] + 7,"sp44->naim7","Gr+/b"))
+                  @ VarGet [28] [ 3 ] , VarGet [28] [ 4 ] GET VarGet [28] [ 1 ] WHEN(.NOT.EMPTY(VarGet [27][ 1 ])) PICTURE Alltrim ( VarGet [28] [ 2 ] )
+                  @ VarGet [29] [ 3 ] , VarGet [29] [ 4 ] GET VarGet [29] [ 1 ] WHEN(.NOT.EMPTY(VarGet [27][ 1 ])) PICTURE Alltrim ( VarGet [29] [ 2 ] )
+                  @ VarGet [30] [ 3 ] , VarGet [30] [ 4 ] GET VarGet [30] [ 1 ] WHEN(.NOT.EMPTY(VarGet [27][ 1 ])) PICTURE Alltrim ( VarGet [30] [ 2 ] )
+                  @ VarGet [31] [ 3 ] , VarGet [31] [ 4 ] GET VarGet [31] [ 1 ] WHEN(.NOT.EMPTY(VarGet [27][ 1 ])) PICTURE Alltrim ( VarGet [31] [ 2 ] )  ;
+                  VALID sp44->(sp_vl("SP44","2",VarGet [31][3] , VarGet [31][4] + 7,"sp44->naim7","Gr+/b"))
+                  @ VarGet [32] [ 3 ] , VarGet [32] [ 4 ] GET VarGet [32] [ 1 ] WHEN(.NOT.EMPTY(VarGet [31][ 1 ])) PICTURE Alltrim ( VarGet [32] [ 2 ] )
+                  @ VarGet [33] [ 3 ] , VarGet [33] [ 4 ] GET VarGet [33] [ 1 ] WHEN(.NOT.EMPTY(VarGet [31][ 1 ])) PICTURE Alltrim ( VarGet [33] [ 2 ] )
+                  @ VarGet [34] [ 3 ] , VarGet [34] [ 4 ] GET VarGet [34] [ 1 ] WHEN(.NOT.EMPTY(VarGet [31][ 1 ])) PICTURE Alltrim ( VarGet [34] [ 2 ] )
+                ENDIF
+                @ VarGet [35] [ 3 ] , VarGet [35] [ 4 ] GET VarGet [35] [ 1 ] PICTURE Alltrim ( VarGet [35] [ 2 ] )
+                @ VarGet [36] [ 3 ] , VarGet [36] [ 4 ] GET VarGet [36] [ 1 ] PICTURE Alltrim ( VarGet [36] [ 2 ] )
+                @ VarGet [37] [ 3 ] , VarGet [37] [ 4 ] GET VarGet [37] [ 1 ] WHEN(.not.(MaxKolKsash>1.AND.m_vdoc==39))  PICTURE Alltrim ( VarGet [37] [ 2 ] )
+                @ VarGet [38] [ 3 ] , VarGet [38] [ 4 ] GET VarGet [38] [ 1 ] PICTURE Alltrim ( VarGet [38] [ 2 ] )
+                @ VarGet [39] [ 3 ] , VarGet [39] [ 4 ] GET VarGet [39] [ 1 ] PICTURE Alltrim ( VarGet [39] [ 2 ] )
+                @ VarGet [40] [ 3 ] , VarGet [40] [ 4 ] GET VarGet [40] [ 1 ] PICTURE Alltrim ( VarGet [40] [ 2 ] )
+                @ VarGet [41] [ 3 ] , VarGet [41] [ 4 ] GET VarGet [41] [ 1 ] PICTURE Alltrim ( VarGet [41] [ 2 ] )
+                @ VarGet [42] [ 3 ] , VarGet [42] [ 4 ] GET VarGet [42] [ 1 ] PICTURE Alltrim ( VarGet [42] [ 2 ] )
+                @ VarGet [43] [ 3 ] , VarGet [43] [ 4 ] GET VarGet [43] [ 1 ] PICTURE Alltrim ( VarGet [43] [ 2 ] )
+                @ VarGet [44] [ 3 ] , VarGet [44] [ 4 ] GET VarGet [44] [ 1 ] WHEN(.not.(MaxKolKsash>1.AND.m_vdoc==39)) PICTURE Alltrim ( VarGet [44] [ 2 ] )
+                @ VarGet [45] [ 3 ] , VarGet [45] [ 4 ] GET VarGet [45] [ 1 ] PICTURE Alltrim ( VarGet [45] [ 2 ] )
+                @ VarGet [46] [ 3 ] , VarGet [46] [ 4 ] GET VarGet [46] [ 1 ] PICTURE Alltrim ( VarGet [46] [ 2 ] )
+                @ VarGet [47] [ 3 ] , VarGet [47] [ 4 ] GET VarGet [47] [ 1 ] WHEN(.not.(MaxKolKsash>1.AND.m_vdoc==39)) PICTURE Alltrim ( VarGet [47] [ 2 ] )
+                @ VarGet [48] [ 3 ] , VarGet [48] [ 4 ] GET VarGet [48] [ 1 ] PICTURE Alltrim ( VarGet [48] [ 2 ] )  ;
+                  VALID sp08->(sp_vl("SP08"))
+                @ VarGet [49] [ 3 ] , VarGet [49] [ 4 ] GET VarGet [49] [ 1 ] PICTURE Alltrim ( VarGet [49] [ 2 ] )
+                @ VarGet [50] [ 3 ] , VarGet [50] [ 4 ] GET VarGet [50] [ 1 ] PICTURE Alltrim ( VarGet [50] [ 2 ] )  ;
+                  VALID sp08->(sp_vl("SP08","2"))
+                @ VarGet [51] [ 3 ] , VarGet [51] [ 4 ] GET VarGet [51] [ 1 ] WHEN(.NOT.EMPTY(VarGet [50] [ 1 ])) PICTURE Alltrim ( VarGet [51] [ 2 ] )
+                @ VarGet [52] [ 3 ] , VarGet [52] [ 4 ] GET VarGet [52] [ 1 ] WHEN(.NOT.EMPTY(VarGet [50] [ 1 ])) PICTURE Alltrim ( VarGet [52] [ 2 ] )  ;
+                  VALID sp08->(sp_vl("SP08","2"))
+                @ VarGet [53] [ 3 ] , VarGet [53] [ 4 ] GET VarGet [53] [ 1 ] WHEN(.NOT.EMPTY(VarGet [52] [ 1 ])) PICTURE Alltrim ( VarGet [53] [ 2 ] )
+                @ VarGet [54] [ 3 ] , VarGet [54] [ 4 ] GET VarGet [54] [ 1 ] PICTURE Alltrim ( VarGet [54] [ 2 ] )
+//                @ VarGet [55] [ 3 ] , VarGet [55] [ 4 ] GET VarGet [55] [ 1 ] PICTURE Alltrim ( VarGet [55] [ 2 ] )
+//                  VALID sp10->(sp_vl("SP10",,VarGet [8][3] , VarGet [8][4] -33,"_fio()","Gr+/b"))
+            READ
+            IF Lastkey () == K_ESC  /* по нажатию клавиши <ESC> -
+                                       выход из режима ввода */
+               IF ANSWER("Прекратить ввод?")==YES
+               eCloseFil (m_vnum1,m_vnum2,s_files)
+               RETURN .T.
+              ELSE
+                LOOP
+               ENDIF
+            ENDIF
+            EXIT
+           ENDDO
+      IF MaxKolKsash > 1
+         // вычисление общего пробега, всего выполненных ткм. и
+         // суммы отработанных часов
+         m_vyp:=m_chas:=m_pgob:= 0
+         FOR i = 16 TO 32 STEP 4
+            m_pgob += VarGet [ i ] [ 1 ]
+            m_vyp  += VarGet [ i+1 ] [ 1 ]
+            IF m_vdoc == 39
+               m_chas += VarGet [ i+2 ] [ 1 ]
+            ENDIF
+         NEXT
+         IF m_vdoc == 38
+            m_chas := VarGet [ 37 ] [ 1 ]
+         ENDIF
+
+         // вычисление отработанных дней, если не эксплуатация
+         IF m_vdoc == 39.AND..NOT.l_ekspl
+            FOR i = 1 TO 5
+               m_otdn [i] := ( VarGet [54][1] * VarGet [14+4*i][1] ) / m_chas
+            NEXT
+         ENDIF
+      ELSE
+         m_pgob := VarGet [ 16 ] [ 1 ] := VarGet [ 44 ] [ 1 ]
+         m_vyp  := VarGet [ 17 ] [ 1 ] := VarGet [ 47 ] [ 1 ]
+         m_chas := VarGet [ 37 ] [ 1 ]
+         IF m_vdoc == 39
+            VarGet [ 18 ] [ 1 ] := VarGet [ 37 ] [ 1 ]
+            m_otdn [ 1 ] := VarGet [54] [1]
+         ENDIF
+      ENDIF
+
+      // вычисление классности водителя
+      Sp10->(DS(VarGet [8] [1] ))
+      sp20->(DS(StrZero ( YEAR ( VarGet [3] [1] ) , 2 )+Sp10->grafik))
+      sp09->(DS(VarGet [8] [1] + '020'))
+      IF sp09->(Found ()) .AND. Month ( VarGet [3] [1] ) <= Val ( sp09->month )
+         m_kl_kod := '020'
+				 IF l_stavka
+         IF sovhoz->avtodni
+            m_kl_sum := ( sp10->stavka ) * VarGet [54] [1] * ;
+                        ( sp09->procent ) / ( 100 * (sp20->(FIELDGET(FIELDNUM("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2))))))
+         ELSE
+            m_kl_sum := ( sp10->stavka ) * m_chas * ( sp09->procent ) / ;
+                        ( 8 * 100 * (sp20->(FIELDGET(FIELDNUM("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2))))))
+         ENDIF
+         ELSE
+//            m_sum:=IF(varget[48][1]=='',0,varget[49,1])+IF(varget[50][1]=='',0,varget[51,1])+IF(varget[52][1]=='',0,varget[53,1])
+            m_sum:=IF(AT(varget[48,1],m_str1a)<>0,varget[49,1],0)+IF(AT(varget[50,1],m_str1a)<>0,varget[51,1],0)+IF(AT(varget[52,1],m_str1a)<>0,varget[53,1],0)
+            m_kl_sum :=m_sum*sp09->procent/100
+				 ENDIF
+			ELSE
+         sp09->(DS(VarGet [8] [1] + '021'))
+         IF sp09->(Found ()) .AND. Month ( VarGet [3] [1] ) <= Val ( sp09->month )
+            m_kl_kod := '021'
+				 IF l_stavka
+         IF sovhoz->avtodni
+          @10,10 SAY sp10->stavka  COLOR "N/W"
+          @11,10 SAY VarGet [54] [1]  COLOR "N/W"
+          @12,10 SAY  sp09->procent   COLOR "N/W"
+          @13,10 SAY (sp20->(FIELDGET(FIELDNUM("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))))  COLOR "N/W"
+          @14,10 SAY VarGet [3] [1] COLOR "N/W"
+          INKEY(0)
+            m_kl_sum := ( sp10->stavka ) * VarGet [54] [1] * ;
+                        ( sp09->procent ) / ( 100 * ( (sp20->(FIELDGET(FIELDNUM("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))))) )
+         ELSE
+            m_kl_sum := ( sp10->stavka ) * m_chas * ( sp09->procent ) / ;
+                        ( 8 * 100 * ( (sp20->(FIELDGET(FIELDNUM("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))))) )
+         ENDIF
+         ELSE
+//            m_sum:=varget[49,1]+varget[51,1]+varget[53,1]
+            m_sum:=IF(AT(varget[48,1],m_str1a)<>0,varget[49,1],0)+IF(AT(varget[50,1],m_str1a)<>0,varget[51,1],0)+IF(AT(varget[52,1],m_str1a)<>0,varget[53,1],0)
+            m_kl_sum :=m_sum*sp09->procent/100
+				 ENDIF
+         ELSE
+            m_kl_kod := ''
+            m_kl_sum := 0
+         ENDIF
+      ENDIF
+
+      // запись в базу данных
+
+      fz1->(DBAP())
+      fz1->mnt:=fvnum->mnt
+        fz1->npch   := VarGet [ 1 ] [ 1 ]
+        fz1->ndoc   := VarGet [ 2 ] [ 1 ]
+        fz1->ddoc   := VarGet [ 3 ] [ 1 ]
+        fz1->vdoc   := ;
+             If ( m_vdoc == 38 , If ( Empty ( m_kl_kod ).OR.m_kl_sum == 0  , 38 , 39 ) , m_vdoc )
+        fz1->dvv    := date()
+        fz1->oper   := m_oper
+        fz1->vnum1  := m_vnum1++
+      fz1ae->(DBAP())
+       fz1ae->vnum1  := fz1->vnum1
+       fz1ae->gnavt  := VarGet [ 7 ] [ 1 ]
+       fz1ae->rgnor  := VarGet [ 35 ] [ 1 ]
+       fz1ae->rgfak  := VarGet [ 36 ] [ 1 ]
+       fz1ae->vnvs   := m_chas
+       fz1ae->vndv   := VarGet [ 38 ] [ 1 ]
+       fz1ae->prvs   := VarGet [ 39 ] [ 1 ]
+       fz1ae->prpr   := VarGet [ 40 ] [ 1 ]
+       fz1ae->prsn   := VarGet [ 41 ] [ 1 ]
+       fz1ae->prtn   := VarGet [ 42 ] [ 1 ]
+       fz1ae->kolez  := VarGet [ 43 ] [ 1 ]
+       fz1ae->pggr   := VarGet [ 45 ] [ 1 ]
+       fz1ae->ptav   := VarGet [ 46 ] [ 1 ]
+       fz1ae->avdn   := VarGet [ 54 ] [ 1 ]
+       fz1ae->dohod  := VarGet [ 55 ] [ 1 ]
+
+      fz1at->(DBAP())
+       fz1at->vnum1  := fz1->vnum1
+       fz1at->kmtop  := VarGet [ 9 ] [ 1 ]
+       fz1at->zapr   := VarGet [ 10 ] [ 1 ]
+
+   fvnum->vnum1:=m_vnum1;fvnum->vnum2:=m_vnum2
+      FOR i = 1 TO MaxKolKsash
+         IF Alltrim ( VarGet [ 11 + 4*i ] [ 1 ] ) == ''
+            EXIT
+         ENDIF
+
+         fz2->(DBAP())
+          fz2->vnum1  := fz1->vnum1
+          fz2->ksash  := VarGet [ 11 + 4*i ] [ 1 ]
+          fz2->vrab   := '   '
+          fz2->brgd   := VarGet [ 6 ] [ 1 ]
+          fz2->tabn   := VarGet [ 8 ] [ 1 ]
+          fz2->otdn   := m_otdn [ i ]
+          fz2->oths   := VarGet [ 11 + 4*i + 3 ] [ 1 ]
+          fz2->vnum2  := m_vnum2++
+
+         fz2a->(DBAP())
+          fz2a->vnum2  := fz2->vnum2
+         IF KolKsash == 1
+             fz2a->pgob   := m_pgob
+             fz2a->vtkav  := m_vyp
+         ELSE
+             fz2a->pgob   := VarGet [ 12 + 4*i ] [ 1 ]
+             fz2a->vtkav  := VarGet [ 13 + 4*i ] [ 1 ]
+         ENDIF
+
+
+      NEXT
+         IF m_vdoc == 39
+            IF sovhoz->vodarenda
+              fz3->(DBAP())
+               fz3->vnum2 := fz2->vnum2
+               fz3->kopu := '001'
+               fz3->sum  := 0
+            ELSE
+              FOR i1 = 1 TO 3
+                  IF EMPTY(VarGet [ 46 + 2*i1 ] [ 1 ])
+                    EXIT
+                  ENDIF
+                  fz3->(DBAP())
+                   fz3->vnum2 := fz2->vnum2
+                   fz3->kopu := VarGet [ 46 + 2*i1 ] [ 1 ]
+                   fz3->sum  := VarGet [ 46 + 2*i1 + 1 ] [ 1 ]
+              NEXT
+              IF m_kl_sum <> 0
+                  fz3->(DBAP())
+                   fz3->vnum2 := fz2->vnum2
+                   fz3->kopu := m_kl_kod
+                   fz3->sum  := m_kl_sum
+              ENDIF
+            ENDIF
+         ENDIF
+         IF m_vdoc == 38 .AND. m_kl_sum <> 0
+                  fz3->(DBAP())
+             fz3->vnum2 := fz2->vnum2
+             fz3->kopu  := m_kl_kod
+             fz3->sum   := m_kl_sum
+         ENDIF
+                 /* конец записи в файлы */
+//      DBCOMMITALL()
+   FOR i1:=4 TO LEN(VarGet)
+     VarGet [i1] [1] := BLANK(VarGet [i1] [1] ,.t.)
+   NEXT
+   ENDDO          /* конец ввода одного путевого листа */
+RETURN .T.
+
+//
+//╔══════════════════════════════════════════════════════════
+//║ Процедура: eDoKsash.
+//║ Автор: Косулин В. Э.
+//║ Дата разработки: 18/04/91
+//║ Параметры: нет.
+//║ Назначение: изменение состояния ввода ( количество шифров затрат )
+//║ Используемые внешние переменные: MaxKolKsash, Soob, vvod_clr.
+//║ Используемые процедуры и функции: нет.
+//║ Используемые файлы и внешние устройства: нет.
+//║ Побочные эффекты: меняет значение переменных MaxKolKsash и Soob.
+//║ Примечания: доступна только из модуля eVvod1Pu.
+//╚═══════
+//
+
+STATIC Function eDoKsash(soob,maxKolKsash)
+
+   IF MaxKolKsash == 1
+      Soob := 'несколько шифров затрат'
+      MaxKolKsash := 5
+   ELSE
+      Soob := 'один шифр затрат       '
+      MaxKolKsash := 1
+   ENDIF
+
+   @ 1,2 SayDisp Soob color ( 'gr+/b' )
+
+RETURN .T.
+
+//
+//╔══════════════════════════════════════════════════════════
+//║ Процедура: eCloseFil
+//║ Автор: Косулин В. Э.
+//║ Дата разработки: 18/04/91
+//║ Параметры: нет.
+//║ Назначение: закрывает рабочие зоны после процедур eVvod...PutList
+//║ Используемые внешние переменные:
+//║      m_vdoc .
+//║ Используемые процедуры и функции:
+//║      нет.
+//║ Используемые файлы и внешние устройства:
+//║     sp_pl2.dbf, inv_p.dbf, sp_pl1.dbf,SP01.dbf, sp44.dbf,
+//║     sp44a.dbf, SP08.dbf, SP09.dbf, SP10.dbf, SP13A.dbf, SP20.dbf,
+//║     INV_A.dbf, fvnum.dbf, fz1.dbf, fz1ae.dbf, fz1ap.dbf, fz1at.dbf,
+//║     fz2.dbf, fz2a.dbf, fz3.dbf, sovhoz.dbf.
+//║ Побочные эффекты: меняет некоторые SET-определения.
+//║ Примечания: доступна только из модуля eVvod1Pu.
+//╚═══════
+//
+
+STATIC Function eCloseFil(m_vnum1,m_vnum2,s_files)
+
+   SET KEY K_ALT_F9 TO
+   Set ( _SET_ESCAPE , .f. )
+   Set ( _SET_SOFTSEEK , .f. )
+//   SetCURSOR(SC_NONE )
+
+   IF m_vdoc == 40
+      CLOSE sp_pl2
+   ELSE
+      CLOSE sp_pl1
+   ENDIF
+   CLOSE sovhoz
+
+//   CLOSE sp44a
+   fvnum->vnum1:=m_vnum1;fvnum->vnum2:=m_vnum2
+   CLOSE fvnum
+   CLOSE fz1
+   CLOSE fz1ae
+   CLOSE fz1ap
+   CLOSE fz1at
+   CLOSE fz2
+   CLOSE fz2a
+   CLOSE fz3
+   sCLOSEFILES(s_files)
+
+RETURN .T.
+Function fun1_brig(var1,var2,var3,var4)
+  LOCAL m_select:=SELECT(),m_var2,m_ret
+  IF var2<>NIL.AND..NOT.EMPTY(var2)
+    m_var2:=UPPER(ALLTRIM(var2))
+    IF m_var2=="SP44A"
+      RETURN .T.
+    endif
+    DBSELECTAREA(M_VAR2)
+    m_ret:=sp_vl(m_var2)
+    DBSELECTAREA(M_select)
+    RETURN m_ret
+  ENDIF
+  RETURN .t.
+FUNCTION f014_1(arr1)
+
+#define HELPCODE  198
+
+MEMVAR arrlmax
+LOCAL oldHelpCode := p_help_code,m_screen:=SAVESCREEN(0,0,MAXROW(),MAXCOL())
+LOCAL se :=SET(_SET_ESCAPE,.T.)
+LOCAL col,row,getlist:={}
+LOCAL arrtmax := arrlmax := 0,;
+        lenarr := LEN(arr1) ,i,lenght
+FOR i=1 to  lenarr
+  arrtmax:=MAX(arrtmax,LEN(arr1[i,1]))
+  arrlmax:=MAX(arrlmax,arr1[i,3])
+NEXT
+lenght=arrlmax+arrtmax+3            && Длина наибольшей строки экрана
+col=INT((80-lenght)/2)
+row=INT((25-2*lenarr+1)/2)
+SETCOLOR(VVOD_CLR)
+clear
+@ 0,0 to 24,79 double
+@ 0,5 SayDisp p_npr
+FOR i=1 TO lenarr
+    @ row+(i-1)*2-1,col SayDisp PADR(arr1[i,1],arrtmax)+ ': '
+NEXT
+
+p_help_code := HELPCODE
+FOR i=1 TO lenarr
+    @ row+(i-1)*2-1,col+arrtmax+2 GET arr1[i,2]  ;
+                 PICTURE REPLICATE('9',arr1[i,3]) ;
+        VALID EVAL(arr1[i,4])
+    READ
+    IF LASTKEY()==K_ESC.OR.LASTKEY()==K_CTRL_END
+       EXIT
+    END
+NEXT
+p_help_code := oldHelpCode
+
+SET(_SET_ESCAPE,se)
+
+#undef HELPCODE
+RESTSCREEN(0,0,MAXROW(),MAXCOL(),m_screen)
+RETURN NIL
+
+//
+//╔══════════════════════════════════════════════════════════
+//║ Процедура: eVvod2PutList
+//║ Автор: Косулин В. Э.
+//║ Дата разработки: 15/04/91
+//║ Параметры: нет.
+//║ Назначение: Ввод путевого листа грузового автомобиля с прицепом.
+//║ Используемые внешние переменные:
+//║     m_syspath , m_sprpath , m_vdoc , vvod_clr , msg_clr ,
+//║     m_dbspath, p_npr,  m_oper
+//║ Используемые процедуры и функции:
+//║     Wait_Mig, eCloseFil, f013_1, a61, InitClock, BuhMonth,
+//║     fun1_brig, eCloseFil, eDoKsash .
+//║ Используемые файлы и внешние устройства:
+//║     sp_pl2.dbf,fvnum.dbf, fz1.dbf, fz1ae.dbf, fz1ap.dbf,
+//║     fz1at.dbf, fz2.dbf, fz2a.dbf, fz3.dbf,
+//║     SP01.dbf, SP44.dbf, SP08.dbf, SP09.dbf, SP10.dbf, SP13A.dbf,
+//║     SP20.dbf, INV_A.dbf, sovhoz.dbf,
+//║     vvf-4c-1.scr , vvf-4c2p.scr.
+//║ Побочные эффекты: нет.
+//║ Примечания: классность считается по автомобиле-дням или по времени
+//║             в наряде всего в зависимости от значения поля sovhoz->avtodni.
+//╚═══════
+//
+
+Function S_vv040 ()
+
+   // вычисляемые значения
+   LOCAL m_kl_kod  := '   '         /* классность водителя, код оплат */
+   LOCAL m_kl_sum  := 0             /* классность водителя, сумма */
+
+
+   LOCAL m_chas    := 0             /* сумма отработанных часов */
+   LOCAL KolPricep := 0             /* количество прицепов */
+   LOCAL KolKodOpl := 0             /* количество введенных кодов оплат */
+   LOCAL NewList   := .F.           /* флаг перехода на ввод нового
+                                       путевого листа */
+
+   LOCAL val1     := ' '           /* 1-й параметр функции f_valid */
+   LOCAL val2     := ' '           /* 2-й параметр функции f_valid */
+   LOCAL val3     := ' '           /* 3-й параметр функции f_valid */
+   LOCAL val4     := ' '           /* 4-й параметр функции f_valid */
+   LOCAL l_stavka:=.t.,m_str1,m_str2,n1
+
+   LOCAL   i := 0 , i1 := 0,GetList:={},m_sum        /* параметры цикла */
+
+   LOCAL   m_vnum1,m_vnum2,s_files:={}        /* внутренние номера */
+
+   LOCAL   VarGet [44] [8]         /* массив, у которого
+                                      первая координата - значение GET,
+                                      вторая - PICTURE,
+                                      третья - Y-координата,
+                                      четвертая -  X-координата,
+                                      пятая-восьмая -
+                                            параметры ф-ии fun_brig     */
+
+   // предопределенные значения полей
+
+   LOCAL   arr1:={{"Hомер пачки",0,3,{||.T.}},;
+                  {"Код подразделения",SPACE(2),2,{||sp01->(SP_vl("SP01","2"))}},;
+                  {"Гаражный номер",SPACE(5),5,{||INV_A->(sp_vl("INV_A","2"))}},;
+                  {"Табельный номер",SPACE(4),4,{||SP10->(SP_vl("SP10","2"))}},;
+                  {"Шифр затрат",SPACE(7),7,{||sp44->(SP_vl('SP44',"2"))}},;
+                  {"Код оплат"  ,SPACE(3),3,{||SP08->(SP_vl('SP08',"2"))}}}
+   LOCAL m_str1a:=""
+   LOCAL m_schtgsm:=ALLTRIM(GetGsm())
+
+   Wait_Mig ()
+
+   NET USE (m_syspath+"sovhoz") NEW
+l_stavka:=IF(ASCAN(sovhoz->(DBSTRUCT()),{|P|UPPER(p[1])=='LSTAVKA'})<>0,sovhoz->lstavka,.T.)
+   NET USE (m_syspath+"sp_pl2") INDEX (m_syspath+"sp_pl2") NEW
+   dbGoTop ()
+   i := 1
+   DO WHILE .NOT. Eof ()                    /* инициализация массива */
+      VarGet [ i ] [ 1 ] := If ( Alltrim ( sp_pl2->typ ) == 'N' , ;
+             0 , Space ( Len ( Alltrim ( sp_pl2->picture ) ) ) )
+      VarGet [ i ] [ 2 ]   := sp_pl2->picture
+      VarGet [ i ] [ 3 ]   := sp_pl2->p_y
+      VarGet [ i ] [ 4 ]   := sp_pl2->p_x
+      VarGet [ i ] [ 5 ]   := sp_pl2->p_param1
+      VarGet [ i ] [ 6 ]   := sp_pl2->p_param2
+      VarGet [ i ] [ 7 ]   := sp_pl2->p_param3
+      VarGet [ i++ ] [ 8 ] := sp_pl2->p_param4
+      SKIP
+   ENDDO
+
+screen->(DBSEEK('VD4C1'))
+m_str1:=screen->vd
+screen->(DBSEEK('VD4C3'))
+m_str2:=screen->vd
+SopenFiles("039",@s_files)
+SELECT Sp08
+set filter to sp08->kopu<'100'
+Sp08->(DBEVAL({||IF(sp08->p05=="1",m_str1a:=m_str1a+sp08->kopu+",","")}))
+SELECT inv_a
+SET RELATION TO inv_a->KAVT INTO SP13A
+   USE (m_BUFpath+"fvnum.dbr") NEW ALIAS fvnum
+      m_vnum1 := fvnum->vnum1
+      m_vnum2 := fvnum->vnum2
+
+   Use (m_bufpath+"fz1")  NEW
+   UI (m_bufpath+"fz1ae") NEW ; SET ORDER TO
+   UI (m_bufpath+"fz1ap") NEW ; SET ORDER TO
+   UI (m_bufpath+"fz1at") NEW ; SET ORDER TO
+   UI (m_bufpath+"fz2")   NEW ; SET ORDER TO
+   UI (m_bufpath+"fz2a")  NEW ; SET ORDER TO
+   UI (m_bufpath+"fz3")   NEW ; SET ORDER TO
+   Setcolor ( VVOD_CLR )
+   Set ( _SET_ESCAPE , .t. )
+   Set ( _SET_SOFTSEEK , .t. )
+//   SetCURSOR(SC_NORMAL )
+
+   // ввод предопределенных значений некоторых полей
+   f014_1 (@arr1)
+   VarGet [3] [1]  := Date ()
+
+   DO WHILE .t.
+
+      // ввод одного путевого листа
+
+      NewList  := .F.
+
+      VarGet [1] [1]  := arr1 [1][2]
+      VarGet [6] [1]  := arr1 [2][2]
+      VarGet [7] [1]  := arr1 [3][2]
+      VarGet [8] [1]  := arr1 [4][2]
+
+      // ввод первой страницы
+      CLEAR SCREEN
+      ?m_str1
+      @2,39 SAY mnt_dtoc(fvnum->mnt) COLOR "GR+/b*"
+      @ 3 , 22 say Alltrim ( p_npr ) COLOR ("GR+/B")
+      KolPricep := 0
+            DO WHILE .T.
+            @ VarGet [ 1 ] [ 3 ] , VarGet [ 1 ] [ 4 ] GET VarGet [ 1 ] [ 1 ] ;
+                  PICTURE Alltrim ( VarGet [ 1 ] [ 2 ] ) ;
+                  VALID (VarGet[1][1]>0)
+            @ VarGet [ 2 ] [ 3 ] , VarGet [ 2 ] [ 4 ] GET VarGet [ 2 ] [ 1 ] ;
+                  PICTURE Alltrim ( VarGet [ 2 ] [ 2 ] ) ;
+                  VALID (VarGet[2][1]>0)
+            @ VarGet [ 3 ] [ 3 ] , VarGet [ 3 ] [ 4 ] GET VarGet [ 3 ] [ 1 ] PICTURE Alltrim ( VarGet [ 3 ] [ 2 ] )
+            @ VarGet [ 6 ] [ 3 ] , VarGet [ 6 ] [ 4 ] GET VarGet [ 6 ] [ 1 ] PICTURE Alltrim ( VarGet [ 6 ] [ 2 ] );
+                  VALID sp01->(sp_vl("SP01","2",VarGet [6][3] , VarGet [6][4] + 5,"sp01->naim1","Gr+/b"))
+            @ VarGet [ 7 ] [ 3 ] , VarGet [ 7 ] [ 4 ] GET VarGet [ 7 ] [ 1 ] PICTURE Alltrim ( VarGet [ 7 ] [ 2 ] );
+                  VALID inv_a->(sp_vl("INV_A",,VarGet [7][3] , VarGet [7][4]-33 ,"sp13a->naim13a","Gr+/b"))
+            @ VarGet [ 8 ] [ 3 ] , VarGet [ 8 ] [ 4 ] GET VarGet [ 8 ] [ 1 ] PICTURE Alltrim ( VarGet [ 8 ] [ 2 ] );
+                  VALID sp10->(sp_vl("SP10",,VarGet [8][3] , VarGet [8][4] -33,"_fio()","Gr+/b"))
+            @ VarGet [ 9 ] [ 3 ] , VarGet [ 9 ] [ 4 ] GET VarGet [ 9 ] [ 1 ] PICTURE Alltrim ( VarGet [ 9 ] [ 2 ] );
+                  VALID inv_a->(sp_vl("INV_A",,VarGet [9][3] , VarGet [9][4]-33 ,"sp13a->naim13a","Gr+/b"))
+            @ VarGet [ 10 ] [ 3 ] , VarGet [ 10 ] [ 4 ] GET VarGet [ 10 ] [ 1 ] WHEN .NOT.EMPTY(VarGet [ 9 ] [ 1 ]) PICTURE Alltrim ( VarGet [ 10 ] [ 2 ] );
+                  VALID inv_a->(sp_vl("INV_A","2",VarGet [10][3] , VarGet [10][4]-33 ,"sp13a->naim13a","Gr+/b"))
+            @ VarGet [ 11 ] [ 3 ] , VarGet [ 11 ] [ 4 ] GET VarGet [ 11 ] [ 1 ] WHEN .NOT.EMPTY(VarGet [ 10 ] [ 1 ]) PICTURE Alltrim ( VarGet [ 11 ] [ 2 ] );
+                  VALID inv_a->(sp_vl("INV_A","2",VarGet [11][3] , VarGet [11][4]-33 ,"sp13a->naim13a","Gr+/b"))
+            @ VarGet [ 12 ] [ 3 ] , VarGet [12 ] [ 4 ] GET VarGet [12 ] [ 1 ] PICTURE Alltrim ( VarGet [ 12] [ 2 ] ) ;
+                  VALID (EVAL({||Sp44->(DS(m_schtgsm+VarGet [12 ] [ 1 ])),SETPOS(VarGet [12][3] , VarGet [9][4]-24),DISPOUT(Sp44->naim7,"gr+/b"),Sp44->(FOUND())}))
+                  //VALID (EVAL({||sp44->(DS("0610"+VarGet [ 12 ] [ 1 ])),SETPOS(VarGet [12][3] , VarGet [12][4]-24),DISPOUT(sp44->naim7,"gr+/b"),sp44->(FOUND())}))
+            @ VarGet [ 13 ] [ 3 ] , VarGet [ 13 ] [ 4 ] GET VarGet [ 13 ] [ 1 ] PICTURE Alltrim ( VarGet [13] [ 2 ] )
+            IF EMPTY(VarGet [ 12 ] [ 1 ])
+               KolPricep:=1
+              IF EMPTY(VarGet [ 13 ] [ 1 ])
+                  KolPricep:=2
+               ELSE
+                  KolPricep:=3
+               ENDIF
+            ENDIF
+            READ
+            IF Lastkey () == K_ESC  /* по нажатию клавиши <ESC> -
+                                       выход из режима ввода */
+               IF ANSWER("Прекратить ввод?")==YES
+               eCloseFil (m_vnum1,m_vnum2,s_files)
+               RETURN .T.
+              ELSE
+                LOOP
+               ENDIF
+            ENDIF
+            EXIT
+         ENDDO
+
+      // ввод второй страницы путевого листа
+      CLEAR SCREEN
+      ?m_str2
+      m_sum:=0
+      VarGet [ 37 ] [ 1 ] := arr1 [6][2]
+    VarGet [ 18 ] [ 1 ] := arr1 [5][2]
+      DO WHILE .T.
+        @ VarGet [18] [ 3 ] , VarGet [18] [ 4 ] GET VarGet [18] [ 1 ] PICTURE Alltrim ( VarGet [18] [ 2 ] );
+          VALID sp44->(sp_vl("SP44",,VarGet [18][3] , VarGet [18][4] + 8,"sp44->naim7","Gr+/b"))
+        @ VarGet [19] [ 3 ] , VarGet [19] [ 4 ] GET VarGet [19] [ 1 ] PICTURE Alltrim ( VarGet [19] [ 2 ] )
+        @ VarGet [20] [ 3 ] , VarGet [20] [ 4 ] GET VarGet [20] [ 1 ] PICTURE Alltrim ( VarGet [20] [ 2 ] )
+        @ VarGet [21] [ 3 ] , VarGet [21] [ 4 ] GET VarGet [21] [ 1 ] PICTURE Alltrim ( VarGet [21] [ 2 ] )
+        @ VarGet [22] [ 3 ] , VarGet [22] [ 4 ] GET VarGet [22] [ 1 ] PICTURE Alltrim ( VarGet [22] [ 2 ] )
+        @ VarGet [23] [ 3 ] , VarGet [23] [ 4 ] GET VarGet [23] [ 1 ] PICTURE Alltrim ( VarGet [23] [ 2 ] )
+        @ VarGet [24] [ 3 ] , VarGet [24] [ 4 ] GET VarGet [24] [ 1 ] PICTURE Alltrim ( VarGet [24] [ 2 ] )
+        @ VarGet [25] [ 3 ] , VarGet [25] [ 4 ] GET VarGet [25] [ 1 ] PICTURE Alltrim ( VarGet [25] [ 2 ] )
+        @ VarGet [26] [ 3 ] , VarGet [26] [ 4 ] GET VarGet [26] [ 1 ] PICTURE Alltrim ( VarGet [26] [ 2 ] )
+        @ VarGet [27] [ 3 ] , VarGet [27] [ 4 ] GET VarGet [27] [ 1 ] PICTURE Alltrim ( VarGet [27] [ 2 ] )
+        @ VarGet [28] [ 3 ] , VarGet [28] [ 4 ] GET VarGet [28] [ 1 ] PICTURE Alltrim ( VarGet [28] [ 2 ] )
+        @ VarGet [29] [ 3 ] , VarGet [29] [ 4 ] GET VarGet [29] [ 1 ] PICTURE Alltrim ( VarGet [29] [ 2 ] )
+        @ VarGet [30] [ 3 ] , VarGet [30] [ 4 ] GET VarGet [30] [ 1 ] WHEN (.NOT.EMPTY(VarGet [ 10 ] [ 1 ])) PICTURE Alltrim ( VarGet [30] [ 2 ] )
+        @ VarGet [31] [ 3 ] , VarGet [31] [ 4 ] GET VarGet [31] [ 1 ] WHEN (.NOT.EMPTY(VarGet [ 11 ] [ 1 ])) PICTURE Alltrim ( VarGet [31] [ 2 ] )
+        @ VarGet [32] [ 3 ] , VarGet [32] [ 4 ] GET VarGet [32] [ 1 ] PICTURE Alltrim ( VarGet [32] [ 2 ] )
+        @ VarGet [33] [ 3 ] , VarGet [33] [ 4 ] GET VarGet [33] [ 1 ] PICTURE Alltrim ( VarGet [33] [ 2 ] )
+        @ VarGet [34] [ 3 ] , VarGet [34] [ 4 ] GET VarGet [34] [ 1 ] PICTURE Alltrim ( VarGet [34] [ 2 ] )
+        @ VarGet [35] [ 3 ] , VarGet [35] [ 4 ] GET VarGet [35] [ 1 ] PICTURE Alltrim ( VarGet [35] [ 2 ] )
+        @ VarGet [36] [ 3 ] , VarGet [36] [ 4 ] GET VarGet [36] [ 1 ] PICTURE Alltrim ( VarGet [36] [ 2 ] )
+        @ VarGet [37] [ 3 ] , VarGet [37] [ 4 ] GET VarGet [37] [ 1 ] PICTURE Alltrim ( VarGet [37] [ 2 ] )  ;
+          VALID sp08->(sp_vl("SP08"))
+        @ VarGet [38] [ 3 ] , VarGet [38] [ 4 ] GET VarGet [38] [ 1 ] PICTURE Alltrim ( VarGet [38] [ 2 ] )
+        @ VarGet [39] [ 3 ] , VarGet [39] [ 4 ] GET VarGet [39] [ 1 ] PICTURE Alltrim ( VarGet [39] [ 2 ] )  ;
+          VALID sp08->(sp_vl("SP08","2"))
+        @ VarGet [40] [ 3 ] , VarGet [40] [ 4 ] GET VarGet [40] [ 1 ] WHEN(.NOT.EMPTY(VarGet [39] [ 1 ])) PICTURE Alltrim ( VarGet [40] [ 2 ] )
+        @ VarGet [41] [ 3 ] , VarGet [41] [ 4 ] GET VarGet [41] [ 1 ] WHEN(.NOT.EMPTY(VarGet [39] [ 1 ])) PICTURE Alltrim ( VarGet [41] [ 2 ] )  ;
+          VALID sp08->(sp_vl("SP08","2"))
+        @ VarGet [42] [ 3 ] , VarGet [42] [ 4 ] GET VarGet [42] [ 1 ] WHEN(.NOT.EMPTY(VarGet [41] [ 1 ])) PICTURE Alltrim ( VarGet [42] [ 2 ] )
+        @ VarGet [43] [ 3 ] , VarGet [43] [ 4 ] GET VarGet [43] [ 1 ] PICTURE Alltrim ( VarGet [43] [ 2 ] )
+//        @ VarGet [44] [ 3 ] , VarGet [44] [ 4 ] GET VarGet [44] [ 1 ] PICTURE Alltrim ( VarGet [44] [ 2 ] )
+            READ
+            IF Lastkey () == K_ESC  /* по нажатию клавиши <ESC> -
+                                       выход из режима ввода */
+               IF ANSWER("Прекратить ввод?")==YES
+               eCloseFil (m_vnum1,m_vnum2,s_files)
+               RETURN .T.
+              ELSE
+                LOOP
+               ENDIF
+            ENDIF
+            EXIT
+           ENDDO
+      // вычисление классности водителя
+      Sp10->(DS(VarGet [8] [1] ))
+      sp20->(DS(StrZero ( YEAR ( VarGet [3] [1] ) , 2 )+Sp10->grafik))
+      SELECT sp09
+      SEEK VarGet [8] [1] + '020'
+      IF Found () .AND. Month ( VarGet [3] [1] ) <= Val ( sp09->month )
+         m_kl_kod := '020'
+				 IF l_stavka
+         IF sovhoz->avtodni
+            m_kl_sum := ( sp10->stavka ) * VarGet [43] [1] * ;
+                        ( sp09->procent ) / ( 100 * ( sp20->(FIELDGET("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))))
+         ELSE
+            m_kl_sum := ( sp10->stavka ) * m_chas * ( sp09->procent ) / ;
+                        ( 8 * 100 * ( sp20->(FIELDGET("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))))
+         ENDIF
+				 ELSE
+            m_sum:=IF(AT(varget[47,1],m_str1a)<>0,varget[38,1],0)+IF(AT(varget[39,1],m_str1a)<>0,varget[40,1],0)+IF(AT(varget[41,1],m_str1a)<>0,varget[42,1],0)
+//            m_sum:=varget[38,1]+varget[40,1]+varget[42,1]
+            m_kl_sum :=m_sum*sp09->procent/100
+				 ENDIF
+
+      ELSE
+         SEEK VarGet [8] [1] + '021'
+         IF Found () .AND. Month ( VarGet [3] [1] ) <= Val ( sp09->month )
+            m_kl_kod := '021'
+				 IF l_stavka
+            IF sovhoz->avtodni
+               m_kl_sum := ( sp10->stavka ) * VarGet [43] [1] * ;
+                           ( sp09->procent ) / ( 100 * ( sp20->(FIELDGET("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))) )
+            ELSE
+               m_kl_sum := ( sp10->stavka ) * m_chas * ( sp09->procent ) / ;
+                           ( 8 * 100 * ( sp20->(FIELDGET("OTDN"+STRZERO(MONTH(VarGet [3] [1]),2)))) )
+            ENDIF
+				 ELSE
+//            m_sum:=varget[38,1]+varget[40,1]+varget[42,1]
+            m_sum:=IF(AT(varget[47,1],m_str1a)<>0,varget[38,1],0)+IF(AT(varget[39,1],m_str1a)<>0,varget[40,1],0)+IF(AT(varget[41,1],m_str1a)<>0,varget[42,1],0)
+            m_kl_sum :=m_sum*sp09->procent/100
+				 ENDIF
+         ENDIF
+      ENDIF
+
+      // запись в базу данных
+
+      SELECT fz1
+      APPEND BLANK
+      REPLACE  fz1->npch   WITH VarGet [ 1 ] [ 1 ]
+      REPLACE  fz1->ndoc   WITH VarGet [ 2 ] [ 1 ]
+      REPLACE  fz1->ddoc   WITH VarGet [ 3 ] [ 1 ]
+      REPLACE  fz1->vdoc   WITH 40
+      REPLACE  fz1->dvv    WITH DATE()
+      REPLACE  fz1->oper   WITH m_oper
+      REPLACE  fz1->vnum1  WITH m_vnum1++
+      fz1->mnt:=fvnum->mnt
+
+      SELECT fz1ae
+      APPEND BLANK
+      REPLACE fz1ae->vnum1  WITH fz1->vnum1
+      REPLACE fz1ae->gnavt  WITH VarGet [ 7 ] [ 1 ]
+      REPLACE fz1ae->rgnor  WITH VarGet [ 19 ] [ 1 ]
+      REPLACE fz1ae->rgfak  WITH VarGet [ 20 ] [ 1 ]
+      REPLACE fz1ae->vnvs   WITH VarGet [ 21 ] [ 1 ]
+      REPLACE fz1ae->vndv   WITH VarGet [ 22 ] [ 1 ]
+      REPLACE fz1ae->prvs   WITH VarGet [ 23 ] [ 1 ]
+      REPLACE fz1ae->prpr   WITH VarGet [ 24 ] [ 1 ]
+      REPLACE fz1ae->prsn   WITH VarGet [ 25 ] [ 1 ]
+      REPLACE fz1ae->prtn   WITH VarGet [ 26 ] [ 1 ]
+      REPLACE fz1ae->kolez  WITH VarGet [ 27 ] [ 1 ]
+      REPLACE fz1ae->pggr   WITH VarGet [ 32 ] [ 1 ]
+      REPLACE fz1ae->ptav   WITH VarGet [ 33 ] [ 1 ]
+      REPLACE fz1ae->avdn   WITH VarGet [ 43 ] [ 1 ]
+      REPLACE fz1ae->dohod  WITH VarGet [ 44 ] [ 1 ]
+
+      SELECT fz1ap
+      APPEND BLANK
+      REPLACE fz1ap->vnum1  WITH fz1->vnum1
+      REPLACE fz1ap->gnp1   WITH VarGet [ 9 ] [ 1 ]
+      REPLACE fz1ap->gnp2   WITH VarGet [ 10 ] [ 1 ]
+      REPLACE fz1ap->gnp3   WITH VarGet [ 11 ] [ 1 ]
+      REPLACE fz1ap->pgob1  WITH VarGet [ 29 ] [ 1 ]
+      REPLACE fz1ap->pgob2  WITH VarGet [ 30 ] [ 1 ]
+      REPLACE fz1ap->pgob3  WITH VarGet [ 31 ] [ 1 ]
+      REPLACE fz1ap->ptpr   WITH VarGet [ 34 ] [ 1 ]
+      REPLACE fz1ap->vtkpr  WITH VarGet [ 36 ] [ 1 ]
+      REPLACE fz1ap->vnus   WITH VarGet [ 21 ] [ 1 ]
+
+      SELECT fz1at
+      FOR i = 1 TO 3
+         IF Alltrim ( VarGet [ 10 + 2*i ] [ 1 ] ) == ''
+            EXIT
+         ENDIF
+
+         APPEND BLANK
+         REPLACE fz1at->vnum1  WITH fz1->vnum1
+         REPLACE fz1at->kmtop  WITH VarGet [ 10 + 2*i ] [ 1 ]
+         REPLACE fz1at->zapr   WITH VarGet [ 10 + 2*i + 1 ] [ 1 ]
+      NEXT
+
+      SELECT fz2
+      APPEND BLANK
+      REPLACE fz2->vnum1  WITH fz1->vnum1
+      REPLACE fz2->ksash  WITH VarGet [ 18 ] [ 1 ]
+      REPLACE fz2->vrab   WITH '   '
+      REPLACE fz2->brgd   WITH VarGet [ 6 ] [ 1 ]
+      REPLACE fz2->tabn   WITH VarGet [ 8 ] [ 1 ]
+      REPLACE fz2->otdn   WITH VarGet [ 43 ] [ 1 ]
+      REPLACE fz2->oths   WITH VarGet [ 21 ] [ 1 ]
+      REPLACE fz2->vnum2  WITH m_vnum2++
+
+      SELECT fz2a
+      APPEND BLANK
+      REPLACE fz2a->vnum2  WITH fz2->vnum2
+      REPLACE fz2a->pgob   WITH VarGet [ 28 ] [ 1 ]
+      REPLACE fz2a->vtkav  WITH VarGet [ 35 ] [ 1 ]
+
+      SELECT fz3
+      IF sovhoz->vodarenda
+         APPEND BLANK
+         REPLACE fz3->vnum2 WITH fz2->vnum2
+         REPLACE fz3->kopu WITH '001'
+         REPLACE fz3->sum  WITH 0
+      ELSE
+         FOR i1 = 1 TO 3
+            IF EMPTY(VarGet [ 35 + 2*i1 ] [ 1 ])
+              EXIT
+            ENDIF
+            APPEND BLANK
+            REPLACE fz3->vnum2 WITH fz2->vnum2
+            REPLACE fz3->kopu WITH VarGet [ 35 + 2*i1 ] [ 1 ]
+            REPLACE fz3->sum  WITH VarGet [ 35 + 2*i1 + 1 ] [ 1 ]
+         NEXT
+         IF m_kl_sum <> 0
+            APPEND BLANK
+            REPLACE fz3->vnum2 WITH fz2->vnum2
+            REPLACE fz3->kopu WITH m_kl_kod
+            REPLACE fz3->sum  WITH m_kl_sum
+         ENDIF
+      ENDIF
+
+      // конец записи в файлы
+   FOR n1:=4 TO LEN(VarGet)
+     VarGet [n1] [1] := BLANK(VarGet [n1] [1] ,.t.)
+   NEXT
+   ENDDO          /* конец ввода одного путевого листа */
+   eCloseFil ()
+
+RETURN .t.
+STATIC FUNCTION Ekspl(l_ekspl,Soob1)
+l_ekspl:=.NOT.l_ekspl
+IF l_ekspl
+  Soob1:="Експлуатацiя"
+ELSE
+  Soob1:="            "
+ENDIF
+@0,0 SAY Soob1 COLOR "gr+/b"
+RETURN .T.
+Function RestVar(m_name)
+myvar->(DBSEEK(PADR(LOWER(ALLTRIM(m_name)),12)))
+DO CASE
+  CASE myvar->kod=="C"
+    RETURN (ALLTRIM(myvar->value))
+  CASE myvar->kod=="N"
+    RETURN (VAL(myvar->value))
+  CASE myvar->kod=="L"
+    RETURN (IF(AT(UPPER(ALLTRIM(myvar->value)),"1TYД")<>0,.t.,.f.))
+  CASE myvar->kod=="D"
+    RETURN (CTOD(ALLTRIM(myvar->value)))
+ENDCASE
+RETURN (0)
+

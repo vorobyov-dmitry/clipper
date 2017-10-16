@@ -1,0 +1,11 @@
+.prg.obj:
+    clipper $< /n /m /w
+
+.obj.exe:
+    rtlink @work lib NEW,CT250 >bild.txt
+
+work.obj:     work.prg
+kassa01.obj:   kassa01.prg
+copykass.obj:  copykass.prg 
+kasams01.obj:   kasams01.prg
+work.exe:   work.obj kassa01.obj copykass.obj kasams01.obj C:\compil\OBJ3\SPRAV.obj nds.obj

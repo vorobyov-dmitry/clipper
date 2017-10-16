@@ -1,0 +1,10 @@
+.prg.obj:
+    clipper $< /n/W
+
+.obj.exe:
+  rtlink fi formfl,sprav,ct2us50 lib new,ct250
+
+
+formfl.obj:   formfl.prg
+
+formfl.exe : formfl.obj

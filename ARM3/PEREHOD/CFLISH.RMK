@@ -1,0 +1,9 @@
+.prg.obj:
+    clipper $< /n /m /w
+
+.obj.exe:
+    rtlink fi cflish,sprav,ct2us50 lib new,CT250
+
+cflish.obj:     cflish.prg
+
+cflish.exe:   cflish.obj

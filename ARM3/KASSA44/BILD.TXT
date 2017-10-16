@@ -1,0 +1,28 @@
+.RTLink for Clipper  Dynamic Overlay Linker / Pre-Linker  Version 3.13
+(C) Copyright Pocket Soft Inc., 1988-1991.  All Rights Reserved.
+
+=> fi
+=> work.obj,
+=> kassa01.obj,
+=> copykass,
+=> kasams01,
+=> sprav,
+=> nds,
+=> ct2us50
+=> 
+warning wrt0011: Public symbol 'INITNDS' doubly defined
+warning wrt0011: Public symbol 'GETNDSKSAS' doubly defined
+warning wrt0011: Public symbol 'GETNDSDBT' doubly defined
+warning wrt0011: Public symbol 'GETNDSKOPR' doubly defined
+creating temporary work file 'C:\temp\rt007333.swp'
+
+UNDEFINED SYMBOL(S) AFTER LIBRARY SEARCH:
+	SYMBOL						FIRST REFERENCE
+	------						---------------
+	'MYMENU'					SPRAV.OBJ
+	'EDFORM'					NDS.OBJ
+
+warning wrt0022: .EXE may not execute properly -- undefined symbols
+313K
+5 warning message(s)
+deleting temporary work file 'C:\temp\rt007333.swp'

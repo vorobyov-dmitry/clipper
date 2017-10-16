@@ -1,0 +1,8 @@
+
+calc63.obj : main.prg
+     ECHO ŠŒˆ‹Ÿ–ˆŸ ƒ€ŒŒ›
+     clipper main  /ocalc63   /N/W/b
+
+calc63.exe : calc63.obj
+     ECHO ‘’…ˆ… ƒ€ŒŒ›
+     rtlink fi calc63,sprav,ct2us50 lib new,ct250 

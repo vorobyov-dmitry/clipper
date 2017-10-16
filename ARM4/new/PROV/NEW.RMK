@@ -1,0 +1,19 @@
+#!CLS
+
+.prg.obj:
+    clipper $< /n/w
+
+main.obj:    main.prg
+msh.obj:     msh.prg
+prov.obj:    prov.prg
+maket.obj:   maket.prg
+viewms.obj:  viewms.prg
+viewbr.obj:  viewbr.prg
+docum.obj:  docum.prg
+browdb.obj: browdb.prg
+
+
+prov.exe : main.obj  prov.obj maket.obj C:\compil\obj3\sprav.obj viewms.obj msh.obj viewbr.obj browdb.obj docum.obj
+        ECHO BUILD MODULE
+        rtlink @new >rtnew
+        copy prov.exe C:\compil\exe\prov.exe

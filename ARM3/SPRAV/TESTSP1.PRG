@@ -1,0 +1,1833 @@
+//M0
+EXTERNAL ntocmonth
+#include "new.ch"
+#include "menu.ch"
+#include "achoice.ch"
+#define REAL  1
+#define A_WHEN  1
+#define A_VALID 2
+#define A_AFTER 3
+#define A_PICT 4
+#define M_WAIT 300
+#ifndef CLIP52
+  #define my_pict ""
+#else
+  #define my_pict m_block:picture
+#endif
+
+memvar m_bufpath  ,m_mainpath ,m_sprpath  ,m_exepath
+memvar m_mash     ,m_syspath  ,m_workpath,m_uchpath
+MEMVAR a_menu, m_temppath, my_var,m_level
+
+static lapnd:=.F.
+STATIC a_br:={}
+STATIC m_schtgsm:=""
+STATIC FUNCTION SkipOrder( n )
+    LOCAL  ncount  := 0
+
+
+IF n > 0
+   DO WHILE ncount < n
+        DBSKIP()
+       // Если конец файла
+       IF  EOF()
+          IF  lApnd
+             nCount++
+          ELSE
+             DBSKIP( -1 )
+          ENDIF
+          EXIT
+       END
+       ncount++
+   ENDDO
+ELSEIF n < 0
+   DO WHILE ncount > n
+       DBSKIP( -1 )
+       IF BOF()
+          EXIT
+       END
+       ncount--
+   ENDDO
+END
+
+RETURN ( ncount )
+
+STATIC FUNCTION crbr(my_browse,m_tabl,a_col,l_print,a_block)
+   LOCAL m_col,m_select:=SELECT(),m_str,i:=0
+//use (m_file)  index (m_file) new readonly   alias tabl
+sptabl->(dbseek(m_tabl))
+DO WHILE .NOT.sptabl->(EOF()).and.ALLTRIM(sptabl->NAME)==m_tabl
+   m_Col           := TBColumnNew()
+   IF sptabl->type=='02'
+      m_col:block:=&("{||"+trn(ALLTRIM(sptabl->value))+"}")
+   ELSE
+      IF sptabl->type=='01'
+        m_col:block:=&("{|x|IF(x==NIL,field->"+ALLTRIM(sptabl->value)+",field->"+ALLTRIM(sptabl->value)+":=x)}")
+      ELSE
+        IF sptabl->type=='05'
+         m_col:block:={|x|IF(x==NIL,RIGHT(field->mnt,2)+"."+LEFT(field->mnt,2),field->mnt:=RIGHT(x,2)+LEFT(x,2))}
+        ELSE
+          m_col:block:=&("{|x|IF(x==NIL,"+ALLTRIM(sptabl->value)+","+ALLTRIM(sptabl->value)+":=x)}")
+        ENDIF
+      ENDIF
+   ENDIF
+   IF UPPER(VALTYPE(a_block))=="A"
+    AADD(a_block,m_col:block)
+   ENDIF
+   m_col:heading:=ALLTRIM(sptabl->heading)
+   AADD(a_col,{{||.F.},{||.T.},{||.T.},NIL})
+   AADD(l_print,{||.T.})
+   IF .NOT.EMPTY(sptabl->cargo)
+    m_col:Cargo:=ALLTRIM(sptabl->cargo)
+   ENDIF
+   IF sptabl->type=='01'.OR.sptabl->type=='05'
+      IF .NOT.EMPTY(sptabl->when)
+         a_col[LEN(a_col),A_WHEN]:=&("{||"+ALLTRIM(sptabl->when)+"}")
+      ELSE
+         a_col[LEN(a_col),A_WHEN]:={||.T.}
+      ENDIF
+      IF .NOT.EMPTY(sptabl->valid)
+             a_col[LEN(a_col),A_VALID]:=&("{|p|"+trn(ALLTRIM(sptabl->valid))+"}")
+      ENDIF
+      IF sptabl->type=='05'
+             a_col[LEN(a_col),A_VALID]:=;
+             {|p|(EMPTY(LEFT(p,2)).AND.EMPTY(RIGHT(p,2))).OR.(LEFT(p,2)>="01".AND.LEFT(p,2)<="12".AND.RIGHT(p,2)<="99".AND.RIGHT(p,2)>="00")}
+      ENDIF
+      IF .NOT.EMPTY(sptabl->after)
+         a_col[LEN(a_col),A_AFTER]:=&("{||"+ALLTRIM(sptabl->after)+"}")
+      ENDIF
+      IF .NOT.EMPTY(sptabl->pict)
+        a_col[LEN(a_col),A_PICT]:=alltrim(sptabl->pict)
+      ENDIF
+   ENDIF
+   l_print[LEN(l_print)]:=sptabl->print
+
+//   m_Col:colorblock:=  {|| {1,2}}
+      m_Col:colorblock:=  {|| Color1()}
+      IF sptabl->type=='01'.OR.sptabl->type=='05'
+        m_Col:headsep    := "┬─"
+        m_col:colsep:="│"
+        m_col:footsep:="╧═"
+      ELSE
+      m_Col:headsep    := "─"
+        m_col:colsep:=" "
+        m_col:footsep:="══"
+      ENDIF
+   IF .NOT.EMPTY(sptabl->width)
+      m_col:width:=sptabl->width
+   ENDIF
+#ifdef CLIP52
+   IF .NOT.EMPTY(sptabl->pict)
+    m_col:picture:=alltrim(sptabl->pict)
+ENDIF
+#endif
+   my_browse:addColumn( m_col )
+   sptabl->(dbskip(1))
+ENDDO
+//CLOSE sptabl
+SELECT(m_select)
+RETURN (.T.)
+FUNCTION  name(m_var)
+   dbseek(m_var)
+   IF found()
+      RETURN (field->name)
+   ENDIF
+RETURN SPACE(FIELDSIZE(FIELDNAME("name")))
+FUNCTION BrApnd()
+RETURN lapnd
+FUNCTION spbrow(m_var)
+   LOCAL m_browse,m_key,m_buf,m_col,m_screen,a_col:={},c_key,c_key1,m_poisk3,m_indexkey
+    LOCAL m_time,m_recno,getlist:={},l_second:=.F.,l_print:={},m_poisk1:={||.f.},m_poisk2:={||.f.},m_poisk4:={||.f.}
+   LOCAL nbottom,s_files:={},n_order,key_blk,i:=0,l_delete:=.f.,m_block,m_inkey
+DCL MENU
+   LOCAL l_left:=.f.,j,k,m_exit:=READEXIT(.t.),l_mode:="0"
+
+CREATE MENU STANDART
+AADD(a_ver_menu[MENU_DOP][1],"Видеоформа                      F4")
+AADD(a_ver_menu[MENU_DOP][2],K_F4)
+set date format to "dd/mm/yyyy"
+   lapnd:=.F.
+   crbrtb(@m_browse,ALLTRIM(m_var),@l_mode)
+   SopenFiles(ALLTRIM(m_var),@s_files)
+    SELECT(m_var)
+/*   IF .NOT.EMPTY(s_files)
+    DBSELECTAREA(s_files[1])
+   ELSE
+    SELECT(m_var)
+   ENDIF */
+   crbr(m_browse,ALLTRIM(m_var),@a_col,@l_print)
+   m_browse:headsep       :="┬"
+   m_browse:freeze        := sptabl1->frz
+   m_browse:autolite:=.f.
+   nbottom:=MAXROW()-m_browse:nbottom
+   m_browse:colorspec:='W/B,b/W,GR+/b,GR+/N,N/BG,w+/b,n+/w,w/n*,w+/n*,b+/w,w/b*,w+/b*'
+   SET CURSOR OFF
+   DISPBOX( 1, 0, MAXROW()-1, MAXCOL(), B_DOUBLE + " " ,(TOKEN(m_browse:colorspec,",",1)))
+   @1,30 SayDisp  m_browse:cargo COLOR (TOKEN(m_browse:colorspec,",",3))
+   STABILIZE BROWSE m_browse
+   @MAXROW(),0 SayText PADC("Помощь ~2F1    ~1Mеню ~2F8",MAXCOL()+7) COLOR "B/w,r/w"
+   INIT MENU
+   DO WHILE .T.
+      m_key:=0
+//      m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},{1,1})
+      m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color1())
+      DO WHILE .NOT.(m_browse:stabilize()) .AND.((m_key:=inkey())==0)
+      ENDDO
+      IF m_browse:stabilize()
+  //      m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},{6,1})
+  //      m_browse:ColorRect({m_browse:RowPos,m_browse:ColPos,m_browse:RowPos,m_browse:ColPos},{2,2})
+        m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color2())
+        m_browse:ColorRect({m_browse:RowPos,m_browse:ColPos,m_browse:RowPos,m_browse:ColPos},Color3())
+      ENDIF
+      IF m_key==0.AND..NOT.lApnd
+            m_time:=seconds()
+            DO WHILE (m_key:=inkey())==0.AND.SECONDS()-m_time<M_WAIT
+            ENDDO
+            IF m_key==0
+               m_screen:=SAVESCREEN(0,0,MAXROW(),MAXCOL())
+               COLORWIN(0,0,MAXROW(),MAXCOL(),'8/0')
+               INKEY(0)
+               RESTSCREEN(0,0,MAXROW(),MAXCOL(),m_screen)
+              LOOP
+            ENDIF
+      ENDIF
+//STABILIZE BROWSE m_browse
+// m_key:=inkey(0)
+      DEAL MENU
+      SET ESCAPE ON
+      DO CASE
+         CASE (m_key == K_ENTER.OR.(32<=m_key.AND.239>=m_key)).AND.(ISBIT(ASC(field->st),7).OR.ISBIT(ASC(field->st),8))
+          DispError("Ця строка; виправленню не подлягає !")
+         CASE m_key == K_ENTER.AND..NOT.Islevel()
+          DispError("Ви не маєте повноважень на виправлення цього справочника !")
+         CASE (32<=m_key.AND.239>=m_key).AND..NOT.Islevel()
+          DispError("Ви не маєте повноважень на виправлення цього справочника !")
+         CASE m_key == K_ENTER.OR.lApnd.OR.(32<=m_key.AND.239>=m_key)
+            IF INDEXORD()<>0
+              c_key:=&(INDEXKEY(0))
+            ELSE
+              c_key:=""
+            ENDIF
+            STABILIZE BROWSE m_browse
+            IF EVAL(a_col[m_browse:colPos,A_WHEN])
+               m_block:=m_browse:GetColumn(m_browse:colPos)
+               m_buf:=EVAL(m_block:block)
+               SET(_SET_ESCAPE,.NOT.(lApnd.AND.m_browse:colPos<>1))
+//               SETCURSOR(IF(READINSERT(),SC_INSERT,SC_NORMAL))
+               IF ( m_Key >= 32 .AND. m_Key <= 239 )
+                  KEYBOARD CHR(m_Key)
+               ENDIF
+               DBGOTO(RECNO())
+               IF VALTYPE(EVAL(m_block:block))<>"M"
+                @ROW(),COL() GET m_buf VALID EVAL(a_col[m_browse:colPos,A_VALID],@m_buf);
+                COLOR (TOKEN(m_browse:colorspec,",",4));
+                PICTURE IF(a_col[m_browse:colPos,A_PICT]==NIL,'@K '+my_pict,a_col[m_browse:colPos,A_PICT])
+                READ
+               ELSE
+                DIMA02(@m_buf,a_col[m_browse:colPos,A_PICT])
+               ENDIF
+               IF LASTKEY()==K_ESC.AND.lApnd
+                  IF l_left
+                     l_left:=.f.
+                  IF NetRlock()
+                     dbdelete()
+                    UNLOCK
+                  ELSE
+                    DispErr("Файл заблокирован")
+                  ENDIF
+                  ENDIF
+                  lApnd:=.F.
+                  l_second:=.F.
+                  dbskip(-1)
+                  SET ORDER TO n_order
+                  SET ESCAPE ON
+//                  m_browse:up()
+                  m_browse:refreshAll()
+                  LOOP
+               ENDIF
+               IF LASTKEY()==K_UP.AND.m_browse:colPos<>1
+                   l_left:=.T.
+                   DO WHILE .t.
+                      m_browse:left()
+                      IF EVAL(a_col[m_browse:colPos,A_WHEN]).OR.m_browse:colPos==1
+                        EXIT
+                      ENDIF
+                    ENDDO
+                   LOOP
+               ENDIF
+               IF (.NOT.m_buf==EVAL(m_block:block)).OR.lapnd
+                  IF lApnd.AND.m_browse:colPos==1.AND..NOT.l_left
+                     DBAPPEND()
+                     IF neterr()
+                      DispErr("Dont append")
+                    ENDIF
+                  ENDIF
+                  IF NetRlock()
+                    EVAL(m_block:block,m_buf)
+                    EVAL(a_col[m_browse:colPos,A_AFTER])
+                    UNLOCK
+                  ELSE
+                    DispErr("Файл заблокирован")
+                  ENDIF
+               ENDIF
+            ENDIF
+            IF lApnd
+               l_left:=.F.
+               IF m_browse:colPos==m_browse:colCount
+                  m_browse:panHome()
+                  m_browse:down()
+                  l_second:=.T.
+               ELSE
+                  m_browse:right()
+//                  IF m_browse:Colpos==m_browse:rightVisible
+//                    m_browse:panright()
+//                  ENDIF
+               ENDIF
+            ENDIF
+            IF INDEXORD()<>0
+              c_key1:=&(INDEXKEY(0))
+            ELSE
+              c_key1:=c_key
+            ENDIF
+            IF .NOT.lApnd.AND.INDEXORD()<>0.AND.c_key<>c_key1
+                  m_browse:refreshAll()
+            ELSE
+                  m_browse:refreshCurrent()
+            ENDIF
+         CASE m_Key == K_DEL                                    /* удаление записи */
+         IF .NOT.Islevel()
+          DispError("Ви не маєте повноважень на виправлення цього справочника !")
+          LOOP
+         ENDIF
+                IF ISBIT(ASC(field->st),7).OR.ISBIT(ASC(field->st),8)
+                  DispError("Данная строка ;удалению не подлежит !")
+                ELSE
+                  IF l_delete.OR.( ANSWER( "Вы действительно хотите уничтожить запись ?" )==YES )
+                  IF NetRlock()
+                     dbdelete()
+                    UNLOCK
+                  ELSE
+                    DispErr("Файл заблокирован")
+                  ENDIF
+                     DBSKIP(-1)
+                     DBSKIP(1)
+                     m_browse:RefreshAll()
+                  ENDIF
+                  ENDIF
+         DEAL BROWSE m_browse KEY m_key
+         SEARCH BROWSE m_browse KEY m_key
+         RANGE  BROWSE m_browse KEY m_key
+         SEEK   BROWSE m_browse KEY m_key
+         SCAN   BROWSE m_browse KEY m_key
+         CONT SEARCH  BROWSE m_browse KEY m_key
+         PRINT BROWSE m_browse KEY m_key
+         CASE m_key == K_F11
+           EditFull(alltrim(UPPER(m_var)),@m_browse,@a_col)
+         CASE m_key == K_INS  .AND.l_mode<>"1"
+                  m_browse:panHome()
+                  m_browse:goBottom()
+                  STABILIZE BROWSE m_browse
+                  lApnd  := .T.
+                  m_browse:down()
+                  n_order:=INDEXORD()
+                  SET ORDER TO 0
+                  DBGOBOTTOM()
+         CASE m_key == K_ALT_R
+            DBREINDEX()
+        CASE m_key == K_ALT_1
+          IF INDEXORD()<>1
+            SET ORDER TO 1
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+          ENDIF
+        CASE m_key == K_ALT_0
+          IF INDEXORD()<>0
+            SET ORDER TO 0
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+          ENDIF
+        CASE m_key == K_ALT_2
+          IF INDEXORD()<>2.AND..NOT.EMPTY(INDEXKEY(2))
+            SET ORDER TO 2
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+          ENDIF
+          OTHERWISE
+            IF (key_blk:=setkey(m_key))<>NIL
+              EVAL(key_blk,procname(),procline(),"")
+            ENDIF
+      ENDCASE
+   ENDDO
+
+     ScloseFiles(@s_files)
+//     cga80()
+     READEXIT(m_exit)
+     set date format to "dd/mm/yy"
+   RETURN .T.
+//
+//╔══════════════════════════════════════════════════════════
+//║ Функция:  SpUn(  )
+//║ Автор: Воробьев  Д.Л.
+//║ Дата разработки: 10-08-93.
+//║ Назначение: Проверка на уникальность введенного значения
+//║ Возвращает: <.T.> - уникально;
+//║             <.F.> - неуникально.
+//║ Параметры: <p> - буфер ввода.
+//║ Используемые внешние переменные:
+//║ Используемые процедуры и функции: нет.
+//║ Используемые файлы и внешние устройства: нет.
+//║ Побочные эффекты: нет.
+//║ Примечания: нет.
+//╚═══════
+//
+FUNCTION  SpUn( p )
+   LOCAL  nRec    :=  RECNO()
+   LOCAL  l_order :=INDEXORD()
+   LOCAL  lSeek
+   LOCAL  nCurSet := SETCURSOR( 0 )
+IF EMPTY(p)
+SETCURSOR( nCurSet )
+  RETURN .f.
+ENDIF
+SET ORDER TO 1
+lSeek   :=  DBSEEK(p)
+lSeek := ( !lSeek .OR. ( lSeek .AND. ( RECNO()  == nRec ) ) )
+DBGOTO(nRec)
+IF ( !lSeek )
+    DispError("Запись с таким значением поля уже существует.")
+ENDIF
+SETCURSOR( nCurSet )
+SET ORDER TO l_order
+RETURN ( lSeek )
+
+
+
+STATIC FUNCTION crbrtb(my_browse,m_tabl1,l_mode)
+   LOCAL m_select:=SELECT()
+//use (m_file)  index (m_file) new readonly   alias sptabl1
+sptabl1->(dbseek(m_tabl1))
+IF sptabl1->(FOUND())
+  my_browse:=TBrowseDB(;
+  IF(sptabl1->bt==0,2,sptabl1->bt),IF(sptabl1->lt==0,1,sptabl1->lt),;
+    IF(sptabl1->tp==0,MAXROW()-1,sptabl1->tp),IF(sptabl1->nr==0,MAXCOL()-1,sptabl1->nr))
+   my_browse:colorspec:=IF(EMPTY(sptabl1->clr),'N/W,W/B,W+/W,GR+/N,N/BG,B/W',sptabl1->clr)
+   my_browse:colsep        := '│'
+   my_browse:SkipBlock     := { |n| SkipOrder(n) }
+   my_browse:goBottomBlock := { ||  DBGOBOTTOM() }
+   my_browse:goTopBlock    := { ||  DBGOTOP()  }
+   my_browse:freeze        := IF(EMPTY(sptabl1->frz),0,sptabl1->frz)
+   my_browse:cargo        := ALLTRIM(sptabl1->cargo)
+   l_mode:=sptabl1->mode
+ELSE
+//  CLOSE sptabl1
+  SELECT(m_select)
+ RETURN NIL
+ENDIF
+//CLOSE sptabl1
+SELECT(m_select)
+RETURN (.T.)
+
+
+
+FUNCTION sp_vl(num,var2,xrow,xcol,xvar,xcolor,xlen,n_order1)
+LOCAL oCurGet      := GETACTIVE ( ),m_reg:=IF(var2==NIL,"1",var2)
+// Режим 1 - обязательная проверка, 2 - может быть пустое значение , 3 - ввод кода в справочник
+LOCAL cBufClr      := SETCOLOR(),m_lapnd:=lapnd,m_cursor
+LOCAL lEscBuf      := SET(_SET_ESCAPE,.f.),n_win
+LOCAL cBufScreen,m_value:="",m_len,m_rec,key_blk,l_con:=.f.,k
+
+   LOCAL m_browse,m_key,m_buf,m_col,m_screen,a_col:={},c_key,c_key1,m_poisk3:={||.f.},m_indexkey
+   LOCAL m_time,m_recno,getlist:={},l_second:=.F.,l_print:={},m_poisk1:={||.f.},m_poisk2:={||.f.},m_poisk4:={||.f.}
+   LOCAL nbottom,n_order,m_block,n1,i:=0,l_delete:=.f.,m_inkey,l_mode,j,n_winold:=WSELECT()
+   DCL MENU
+
+PRIVATE my_var
+//  Если разрешен ввод пустого значения
+   lapnd:=.F.
+
+IF (LASTKEY()==K_UP).OR.(m_reg=="2".and.empty(oCurGet:VarGet())) //  и разрешен пустой ввод .AND. lEmpty
+   SET(_SET_ESCAPE,lEscBuf)
+   lapnd:=m_lapnd
+      IF xvar<>NIL.AND.xrow<>NIL.AND.xcol<>NIL
+        my_var:=xvar
+        my_var:=&my_var
+        @xrow,xcol SayDisp IF(xlen<>NIL,LEFT(BLANK(my_var,.t.),xlen),BLANK(my_var,.t.)) COLOR IF(Xcolor==NIL,"w/b",xcolor)
+      ENDIF
+   RETURN (.T.)
+ENDIF
+n_order:=INDEXORD()
+IF oCurGet<>NIL
+  IF n_order1==NIL
+    DBSEEK(oCurGet:VarGet(),.t.)
+  ELSE
+    SET ORDER TO n_order1
+    DBSEEK(oCurGet:VarGet(),.t.)
+    SET ORDER TO n_order
+  ENDIF
+
+IF EOF()
+   DBSKIP(-1)
+END
+ENDIF
+IF oCurGet==NIL.OR. .NOT.FOUND()
+set date format to "dd/mm/yyyy"
+//   WSELECT(0)
+  n_win:=WOPEN(0,0,MAXROW(.t.),MAXCOL(.t.))
+  WSELECT(n_win)
+  IF (i:=ASCAN(a_br,{|x|x[1]==num}))<>0
+    m_browse:=a_br[i,2]
+    a_col:=a_br[i,3]
+    l_print:=a_br[i,4]
+    l_mode:=a_br[i,5]
+  ELSE
+    IF LEN(a_br)>=5
+      ADEL(a_br,LEN(a_br))
+      asize(A_BR,len(A_BR)-1)
+    ENDIF
+    AADD(a_br,{ALLTRIM(num),TBROWSEDB(2,1,maxrow()-2,MAXCOL()-1),{},{},"0"})
+    a_col:=   a_br[LEN(a_br),3]
+    l_print:= a_br[LEN(a_br),4]
+    sptabl1->(DS(alltrim(UPPER(num))))
+    IF sptabl1->(FOUND())
+        a_br[LEN(a_br),2]:colsep        := '│'
+        a_br[LEN(a_br),2]:SkipBlock     := { |n| SkipOrder(n) }
+        a_br[LEN(a_br),2]:goBottomBlock := { ||  DBGOBOTTOM() }
+        a_br[LEN(a_br),2]:goTopBlock    := { ||  DBGOTOP()  }
+        a_br[LEN(a_br),2]:freeze        := IF(EMPTY(sptabl1->frz),0,sptabl1->frz)
+        a_br[LEN(a_br),2]:cargo        := ALLTRIM(sptabl1->cargo)
+     ENDIF
+    m_browse:=a_br[LEN(a_br),2]
+    l_mode:=sptabl1->mode
+    a_br[LEN(a_br),5]:=l_mode
+    crbr1(m_browse,ALLTRIM(num),@a_col,@l_print)
+  ENDIF
+   //                    1    2    3      4    5    6    7    8    9    10   11    12
+   m_browse:colorspec:='W/B,b/W,GR+/b,GR+/N,N/BG,w+/b,n+/w,w/n*,w+/n*,b+/w,w/b*,w+/b*'
+   m_browse:autolite:=.f.
+//   cBufScreen   :=SAVESCREEN(m_browse:ntop-2,m_browse:nleft-1,m_browse:nbottom+1,m_browse:nRight+1)
+   m_browse:rowPos:=1;m_browse:colPos:=1
+   m_browse:configure()
+   SOUND(400,15)
+   IF m_reg=="3"
+      DBAPPEND()
+      field->kod:=oCurGet:VarGet()
+      m_browse:colpos:=2
+      KEYBOARD CHR(K_ENTER)
+   ENDIF
+   ADD MENU UP_DOWN
+   ADD MENU SEARCH
+   ADD MENU LEFT_RIGHT
+   ADD MENU NAME "~Изменение" ITEMS {"Добавить новую строку Ins       ","Исправить значение    Ctrl+Enter" ,"Удалить строку        Delete    " ,"Присвоить код         Enter     " }  KEY {K_INS,K_CTRL_RET,K_DEL,K_ENTER}
+   ADD MENU PRINT
+   ADD MENU NAME "~Настройка" ITEMS  {"Подтверждение удаления записей  Alt+L " } KEY {K_ALT_L}
+   INIT MENU
+   nbottom:=MAXROW()-m_browse:nbottom
+    IF INDEXORD()<>0
+      m_len:=LEN(&(INDEXKEY(0)))
+    ELSE
+      m_len:=0
+    ENDIF
+   DISPBOX(m_browse:ntop-1 ,m_browse:nleft-1,m_browse:nbottom+1,m_browse:nRight+1, B_DOUBLE + " ",TOKEN(m_browse:colorspec,",",1))
+   @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("▒",m_len) COLOR "GR+/b"
+   @m_browse:ntop-1 ,m_browse:nleft SayDisp  m_browse:cargo COLOR (TOKEN(m_browse:colorspec,",",3))
+   STABILIZE BROWSE m_browse
+   SET CURSOR OFF
+   DO WHILE .T.
+      m_key:=0
+      SET ESCAPE ON
+      m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color1())
+      DO WHILE .NOT.(m_browse:stabilize()) .AND.((m_key:=inkey())==0)
+      ENDDO
+      IF m_browse:stabilize()
+        m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color2())
+        m_browse:ColorRect({m_browse:RowPos,m_browse:ColPos,m_browse:RowPos,m_browse:ColPos},Color3())
+      ENDIF
+      IF m_key==0.AND..NOT.lApnd
+            m_time:=seconds()
+            DO WHILE (m_key:=inkey())==0.AND.SECONDS()-m_time<M_WAIT
+            ENDDO
+            IF m_key==0
+               m_screen:=SAVESCREEN(0,0,MAXROW(),MAXCOL())
+               COLORWIN(0,0,MAXROW(),MAXCOL(),'8/0');INKEY(0)
+               RESTSCREEN(0,0,MAXROW(),MAXCOL(),m_screen);LOOP
+            ENDIF
+      ENDIF
+      DEAL MENU
+    IF l_con.AND.m_key<>K_ENTER;m_browse:refreshAll();STABILIZE BROWSE m_browse;l_con:=.f.;ENDIF
+      DO CASE
+         CASE m_key == K_CTRL_RET.AND.(ISBIT(ASC(field->st),7).OR.ISBIT(ASC(field->st),8))
+          DispError("Дана строка; виправленню не пiдлягає !")
+         CASE m_key == K_CTRL_RET.AND..NOT.Islevel()
+          DispError("Ви не маєте повноважень на виправлення цього справочника !")
+         CASE m_key == K_CTRL_RET.OR.lApnd  //.OR.(m_key==K_ENTER.AND.m_browse:ColPos<>1)
+            IF INDEXORD()<>0
+              c_key:=&(INDEXKEY(0))
+            ELSE
+              c_key:=""
+            ENDIF
+            STABILIZE BROWSE m_browse
+            IF EVAL(a_col[m_browse:colPos,A_WHEN])
+               m_block:=m_browse:GetColumn(m_browse:colPos)
+               DBGOTO(RECNO())
+               m_buf:=EVAL(m_block:block)
+               SET(_SET_ESCAPE,.NOT.(lApnd.AND.m_browse:colPos<>1))
+//               IF ( m_Key >= 32 .AND. m_Key <= 239 )
+//                  KEYBOARD CHR(m_Key)
+//               ENDIF
+               @ROW(),COL() GET m_buf VALID  EVAL(a_col[m_browse:colPos,A_VALID],@m_buf) COLOR (TOKEN(m_browse:colorspec,",",4)) PICTURE IF(a_col[m_browse:colPos,A_PICT]==NIL,'@K '+my_pict,a_col[m_browse:colPos,A_PICT])
+               READ
+         //      SETCURSOR(m_cursor)
+               IF LASTKEY()==K_ESC.AND.lApnd
+                  lApnd:=.F.
+                  l_second:=.F.
+                  dbskip(-1)
+                  SET ORDER TO n_order
+                  m_browse:refreshAll()
+                  LOOP
+               ENDIF
+               IF m_buf<>EVAL(m_block:block).OR.lapnd
+                  IF lApnd.AND.m_browse:colPos==1
+                     IF NetDBAP()
+                        EVAL(m_block:block,m_buf)
+                        EVAL(a_col[m_browse:colPos,A_AFTER])
+                        DBGOTO(RECNO())
+                        UNLOCK
+                      ELSE
+                        DispErr("Файл заблокирован")
+                      ENDIF
+                  ELSE
+                    IF NetRlock()
+                      EVAL(m_block:block,m_buf)
+                      EVAL(a_col[m_browse:colPos,A_AFTER])
+                      DBGOTO(RECNO())
+                      UNLOCK
+                    ELSE
+                      DispErr("Файл заблокирован")
+                    ENDIF
+                  ENDIF
+               ENDIF
+            ENDIF
+            IF lApnd
+               IF m_browse:colPos==m_browse:colCount
+                  m_browse:panHome()
+                  lApnd:=.f.
+                  l_second:=.F.
+                  l_con:=.t.
+                  SET ORDER TO n_order
+               ELSE
+                  m_browse:right()
+               ENDIF
+            ENDIF
+            IF INDEXORD()<>0
+              c_key1:=&(INDEXKEY(0))
+            ELSE
+              c_key1:=c_key
+            ENDIF
+            IF .NOT.lApnd.AND.INDEXORD()<>0.AND.c_key<>c_key1.AND..NOT.l_con
+                  m_browse:refreshAll()
+            ELSE
+                  m_browse:refreshCurrent()
+            ENDIF
+         CASE m_Key == K_DEL                                    /* удаление записи */
+              IF .NOT.Islevel()
+                DispError("Ви не маєте повноважень на виправлення цього справочника !")
+                LOOP
+              ENDIF
+                IF ISBIT(ASC(field->st),7).OR.ISBIT(ASC(field->st),8)
+                  DispError("Дана строка ;не пiдлягає видаленню !")
+                ELSE
+                  IF l_delete.OR.( ANSWERu("Ви дiйсно бажаєте видалити строку ?" )==YES )
+                      IF NetRlock()
+                          dbdelete()
+                        UNLOCK
+                      ELSE
+                        DispErr("Файл заблокирован")
+                      ENDIF
+                     DBSKIP(-1)
+                     DBSKIP(1)
+                     m_browse:RefreshAll()
+                  ENDIF
+               ENDIF
+         CASE m_key == K_INS.AND.l_mode<>"1"
+                  m_browse:panHome()
+                  m_browse:goBottom()
+                  STABILIZE BROWSE m_browse
+                  lApnd  := .T.
+                  m_browse:down()
+                  n_order:=INDEXORD()
+                  SET ORDER TO 0
+                  DBGOBOTTOM()
+           CASE m_key== K_ESC
+             EXIT
+         DEAL BROWSE m_browse KEY m_key
+         SEARCH BROWSE m_browse KEY m_key
+         RANGE  BROWSE m_browse KEY m_key
+         SEEK   BROWSE m_browse KEY m_key
+         SCAN   BROWSE m_browse KEY m_key
+         CONT SEARCH  BROWSE m_browse KEY m_key
+         PRINT BROWSE m_browse KEY m_key
+        CASE m_key == K_F11
+          EditFull(alltrim(UPPER(num)),@m_browse,@a_col)
+
+        CASE m_key == K_ALT_R
+           DBREINDEX()
+        CASE m_key == K_ALT_1
+          IF INDEXORD()<>1
+            SET ORDER TO 1
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("═",m_len) COLOR "GR+/b"
+            m_len:=LEN(&(INDEXKEY(0)))
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("▒",m_len) COLOR "GR+/b"
+            m_value:=""
+          ENDIF
+        CASE m_key == K_ALT_0
+          IF INDEXORD()<>0
+            SET ORDER TO 0
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+          ENDIF
+          @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("═",m_len) COLOR "GR+/b"
+          m_len:=0
+          m_value:=""
+        CASE m_key == K_ALT_2
+          IF INDEXORD()<>2.AND..NOT.EMPTY(INDEXKEY(2))
+            SET ORDER TO 2
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("═",m_len) COLOR "GR+/b"
+            m_len:=LEN(&(INDEXKEY(0)))
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("▒",m_len) COLOR "GR+/b"
+            m_value:=""
+          ENDIF
+         CASE (m_key == K_ENTER.OR.CHR(m_key)=="+").AND.oCurGet<>NIL
+            IF ISBIT(ASC(field->st),8)
+              DispError("Даний  код не може бути використан !")
+            ELSE
+              EXIT
+            ENDIF
+        CASE m_key==K_BS.AND.LEN(m_value)>0
+            @m_browse:nbottom+1,m_browse:nleft+10+LEN(m_value) SayDisp "▒" COLOR "GR+/b"
+            m_value:=SUBSTR(m_value,1,LEN(m_value)-1)
+        CASE m_len<>0.AND.LEN(m_value)<m_len.AND.m_key>=32
+           m_rec:=RECNO()
+           IF DBSEEK(m_value+UPPER(CHR(m_key)),.t.)
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_rec:=RECNO()
+            m_browse:refreshAll()
+            m_value+=UPPER(CHR(m_key))
+            @m_browse:nbottom+1,m_browse:nleft+10+LEN(m_value) SayDisp CHR(m_key) COLOR "GR+/b"
+          ELSE
+            DBGOTO(m_rec)
+            BeepErr()
+          ENDIF
+         OTHERWISE
+            IF (key_blk:=setkey(m_key))<>NIL
+              EVAL(key_blk,procname(),procline(),"")
+            ENDIF
+      ENDCASE
+   ENDDO
+//   RESTSCREEN(m_browse:ntop-2,m_browse:nleft-1,m_browse:nbottom+1,;
+//   m_browse:nRight+1,cBufScreen)
+   WCLOSE()
+   WSELECT(n_winold)
+   SETCOLOR(cBufClr)
+   SET(_SET_ESCAPE,lEscBuf)
+   lapnd:=m_lapnd
+    SET ORDER TO 1
+set date format to "dd/mm/yy"
+
+   IF LASTKEY()==K_ENTER.OR.CHR(m_key)=="+"
+      oCurGet:VarPut(&(INDEXKEY(IF(n_order1==NIL,1,n_order1))))
+      oCurGet:UpdateBuffer()
+      IF xvar<>NIL.AND.xrow<>NIL.AND.xcol<>NIL
+        my_var:=xvar
+        my_var:=&my_var
+        @xrow,xcol SayDisp IF(xlen<>NIL,LEFT(my_var,xlen),my_var) COLOR IF(Xcolor==NIL,"w/b",xcolor)
+      ENDIF
+      SET CURSOR ON
+      RETURN (.T.)
+   ELSE
+      SET CURSOR ON
+      RETURN (.F.)
+   ENDIF
+ELSE
+   SETCOLOR(cBufClr)
+   SET(_SET_ESCAPE,lEscBuf)
+   KEYBOARD ''
+   lapnd:=m_lapnd
+      IF xvar<>NIL.AND.xrow<>NIL.AND.xcol<>NIL
+        my_var:=xvar
+        my_var:=&my_var
+        @xrow,xcol SayDisp IF(xlen<>NIL,LEFT(my_var,xlen),my_var) COLOR IF(Xcolor==NIL,"w/b",xcolor)
+      ENDIF
+   SET ORDER TO 1
+   RETURN(.T.)
+ENDIF
+RETURN(.T.)
+FUNCTION    SopenFiles(m_var,s_files)
+  LOCAL m_recno:=view->(RECNO()),;
+  m_path:=IF((LEFT(m_var,2)=="SP".OR.UPPER(LEFT(m_var,3))=="INV".OR.ISDIGIT(m_var)).AND.LEFT(m_var,3)<>"SPR",m_sprpath,m_workpath)
+  IF SELECT(m_var)<>0
+    RETURN .t.
+  ENDIF
+  IF .NOT.ISDIGIT(m_var).AND.SELECT(m_var)==0
+    NET USE (M_PATH+m_var) NEW
+    IF FILE(M_PATH+m_var+ ".ntx");DBSETINDEX(M_PATH+m_var)
+      dbsetorder(1)
+    ENDIF
+    IF FILE(M_PATH+m_var+"a.ntx");DBSETINDEX(M_PATH+m_var+"a");ENDIF
+    IF FILE(M_PATH+m_var+"b.ntx");DBSETINDEX(M_PATH+m_var+"b");ENDIF
+    IF FILE(M_PATH+m_var+"c.ntx");DBSETINDEX(M_PATH+m_var+"c");ENDIF
+    AADD(s_files,SELECT())
+  ENDIF
+  view->(DBSEEK(m_var))
+  DO WHILE m_var==SUBSTR(view->p01,1,LEN(m_var)).AND..NOT.view->(EOF())
+    SopenFiles(ALLTRIM(view->p02),@s_files)
+    IF .NOT.EMPTY(view->relation)
+      DBSELECTAREA(m_var)
+      DBSETRELAT(ALLTRIM(view->p02),&("{||"+ALLTRIM(view->relation)+"}"),ALLTRIM(view->relation))
+    ENDIF
+    view->(DBSKIP(1))
+  ENDDO
+  view->(DBGOTO(m_recno))
+  RETURN .T.
+
+
+Function ScloseFiles(s_files)
+AEVAL(s_files,{|x|(x)->(DBCLOSEAREA())})
+RETURN .t.
+Function trn(m_str)
+  LOCAL a_word:={{"UN","SpUn(p)"},;
+                 {"&",".AND."},;
+                 {"ds","DBSEEK"},;
+                 {"sdv","EVAL(p:block,JUSTRIGHT(EVAL(p:block))),p:display()"},;
+                 {"f->","FIELD->"},;
+                 {"!",".OR."}},;
+        i:=1,j,n,n1,m_str1:="",l_r:=.f.
+        n:=LEN(a_word)
+        n1:=len(m_str)
+  DO WHILE i<=LEN(m_str)
+    FOR j:=1 TO n
+        l_r:=.f.
+        IF a_word[j,1]==SUBSTR(m_str,i,LEN(a_word[j,1]))
+          m_str1+=a_word[j,2]
+          i+=LEN(a_word[j,1])
+          l_r:=.t.
+          EXIT
+        ENDIF
+      NEXT
+      If l_r
+        LOOP
+      ENDIF
+      IF "sp"==SUBSTR(m_str,i,2)
+        m_str1+='SP'+SUBSTR(m_str,i+2,2)+'->(SP_VL("SP'+SUBSTR(m_str,i+2,2)+'"))'
+        i+=4
+        loop
+      ENDIF
+      m_str1+=SUBSTR(m_str,i,1)
+      i++
+    ENDDO
+  RETURN m_str1
+Function vv_ankod(m_var)
+  LOCAL m_select:=SELECT(spaa->p03)
+  Spaa->(DBSEEK(m_var))
+RETURN ((m_select)->(sp_vl(spaa->p03)))
+Function vv_anname(m_var)
+  DO CASE
+    CASE 'SP10'== ALLTRIM(Spaa->p03)
+      sp10->(dbseek(m_var))
+      RETURN (_Fio())
+    CASE 'SPAC'== ALLTRIM(Spaa->p03)
+      SPAC->(DBSEEK(m_var))
+      SP3A->(DBSEEK(SPAC->kavt))
+      RETURN sp3a->naim13a
+    CASE 'SPAD'==ALLTRIM(Spaa->p03)
+      SPAD->(DBSEEK(m_var))
+      SP3b->(DBSEEK(Spad->kmtr))
+      RETURN sp3b->naim13b
+   OTHERWISE
+      RETURN SPACE(30)
+   ENDCASE
+RETURN SPACE(30)
+Function StoSTR1(x,m_len)
+LOCAL m_str:="",s:=STR(ABS(x),18,2),i
+if x==0
+  return PADC("──",m_len)
+endif
+m_str:=ALLTRIM(substr(s,1,3))
+FOR i:=1 TO 4
+   IF .NOT.EMPTY(SUBSTR(s,3*i+1,3))
+       IF .NOT.EMPTY(m_str)
+           m_str+="'"+SUBSTR(s,3*i+1,3)
+      ELSE
+        m_str+=ALLTRIM(SUBSTR(s,3*i+1,3))
+      ENDIF
+    ENDIF
+NEXT
+m_str+=IF(substr(s,17,2)=='00',"","."+substr(s,17,2))
+IF x<0
+  m_str:="-"+m_str
+ENDIF
+IF m_len<>NIL.AND.m_len>0
+   m_str:=IF(LEN(m_str)>m_len,REPLICATE("*",m_len),PADL(m_str,m_len))
+ENDIF
+RETURN m_str
+Function _mol(m_var)
+  IF m_var<>NIL
+    Sp02->(DS(m_var))
+    RETURN _fio(Sp02->tabn)
+  ENDIF
+RETURN _fio()
+FUNCTION  _fio(m_var)
+  IF m_var<>NIL
+    sp10->(DBSEEK(m_var,.f.))
+  ENDIF
+RETURN (PADR(ALLTRIM(sp10->fam)+' '+;
+             IF(!EMPTY(sp10->imja),LEFT(sp10->imja,1)+'.'+ ;
+                                  LEFT(sp10->otch,1)+'.',''),25,' '))
+FUNCTION  _fiofull(m_var)
+  IF m_var<>NIL
+    sp10->(DBSEEK(m_var,.f.))
+  ENDIF
+RETURN PADR(ALLTRIM(sp10->fam)+' '+ALLTRIM(sp10->imja)+' '+ALLTRIM(sp10->otch),49)
+FUNCTION  _fioSp17(m_var)
+  IF m_var<>NIL
+    sp17->(DBSEEK(m_var,.f.))
+  ENDIF
+RETURN (PADR(ALLTRIM(sp17->fam)+' '+;
+             IF(!EMPTY(sp17->imja),LEFT(sp17->imja,1)+'.'+ ;
+                                  LEFT(sp17->otch,1)+'.',''),25,' '))
+FUNCTION  _fiofsp17(m_var)
+  IF m_var<>NIL
+    sp17->(DBSEEK(m_var,.f.))
+  ENDIF
+RETURN PADR(ALLTRIM(sp17->fam)+' '+ALLTRIM(sp17->imja)+' '+ALLTRIM(sp17->otch),49)
+
+Function KodnPod(var)
+  DO CASE
+    CASE var=="0"
+      RETURN  "Под. не утрим."
+    CASE var=="1"
+      RETURN  "Под. утр. повн"
+    CASE var=="2"
+      RETURN  "Пiльга 5-мiн  "
+     CASE var=="3"
+      RETURN  "Пiльга 10-мiн "
+     CASE var=="4"
+      RETURN  "За сумiс.(20%)"
+     CASE var=="5"
+      RETURN  "Пiльга 15-мiн "
+     CASE var=="6"
+      RETURN  "Пдх=20%договiр"
+     CASE var=="7"
+      RETURN  "Пдх= 0%договiр"
+ENDCASE
+  RETURN      "??????????????"
+Function KodpPod(var)
+  IF var=="0"
+    RETURN   "Взносы не удержив. "
+  ELSE
+    IF var=="1"
+      RETURN "Удерж. проф. взносы"
+    ENDIF
+  ENDIF
+  RETURN      "???????????????????????????????????"
+STATIC FUNCTION crbr1(my_browse,m_tabl,a_col,l_print,a_block)
+   LOCAL m_col,m_select:=SELECT(),m_str,i:=0
+//use (m_file)  index (m_file) new readonly   alias tabl
+sptabl->(dbseek(m_tabl))
+DO WHILE .NOT.sptabl->(EOF()).and.ALLTRIM(sptabl->NAME)==m_tabl
+   m_Col           := TBColumnNew()
+   IF sptabl->type=='02'
+      m_col:block:=&("{||"+trn(ALLTRIM(sptabl->value))+"}")
+   ELSE
+      IF sptabl->type=='01'
+        m_col:block:=&("{|x|IF(x==NIL,field->"+ALLTRIM(sptabl->value)+",field->"+ALLTRIM(sptabl->value)+":=x)}")
+      ELSE
+        IF sptabl->type=="05"
+          m_col:block:={|x|IF(x==NIL,RIGHT(field->mnt,2)+"."+LEFT(field->mnt,2),field->mnt:=RIGHT(x,2)+LEFT(x,2))}
+        ELSE
+          m_col:block:=&("{|x|IF(x==NIL,"+ALLTRIM(sptabl->value)+","+ALLTRIM(sptabl->value)+":=x)}")
+        ENDIF
+      ENDIF
+   ENDIF
+   IF UPPER(VALTYPE(a_block))=="A"
+    AADD(a_block,m_col:block)
+   ENDIF
+   m_col:heading:=ALLTRIM(sptabl->heading)
+   AADD(a_col,{{||.F.},{||.T.},{||.T.},NIL})
+   AADD(l_print,{||.T.})
+   IF .NOT.EMPTY(sptabl->cargo)
+    m_col:Cargo:=ALLTRIM(sptabl->cargo)
+   ENDIF
+   IF sptabl->type=='01'.OR.sptabl->type=='05'
+      IF .NOT.EMPTY(sptabl->when)
+         a_col[LEN(a_col),A_WHEN]:=&("{||"+ALLTRIM(sptabl->when)+"}")
+      ELSE
+         a_col[LEN(a_col),A_WHEN]:={||.T.}
+      ENDIF
+      IF .NOT.EMPTY(sptabl->valid)
+             a_col[LEN(a_col),A_VALID]:=&("{|p|"+trn(ALLTRIM(sptabl->valid))+"}")
+      ENDIF
+      IF sptabl->type=='05'
+             a_col[LEN(a_col),A_VALID]:={|p|LEFT(p,2)>="01".AND.LEFT(p,2)<="12".AND.RIGHT(p,2)<="99".AND.RIGHT(p,2)>="00"}
+      ENDIF
+      IF .NOT.EMPTY(sptabl->after)
+         a_col[LEN(a_col),A_AFTER]:=&("{||"+ALLTRIM(sptabl->after)+"}")
+      ENDIF
+      IF .NOT.EMPTY(sptabl->pict)
+        a_col[LEN(a_col),A_PICT]:=alltrim(sptabl->pict)
+      ENDIF
+   ENDIF
+   l_print[LEN(l_print)]:=sptabl->print
+
+   m_Col:colorblock:=  {|| Color1()}
+      IF sptabl->type=='01'
+        m_Col:headsep    := "┬─"
+        m_col:colsep:="│"
+      ELSE
+      m_Col:headsep    := "─"
+        m_col:colsep:=" "
+      ENDIF
+   IF .NOT.EMPTY(sptabl->width)
+      m_col:width:=sptabl->width
+   ENDIF
+#ifdef CLIP52
+   IF .NOT.EMPTY(sptabl->pict)
+    m_col:picture:=alltrim(sptabl->pict)
+ENDIF
+#endif
+   my_browse:addColumn( m_col )
+   sptabl->(dbskip(1))
+ENDDO
+//CLOSE sptabl
+SELECT(m_select)
+RETURN (.T.)
+Function vl_sp(num,m_mode,a_dop,a_var)
+LOCAL par      := SavePar()
+LOCAL n_win,m_lapnd:=lApnd
+LOCAL cBufScreen,m_value:="",m_len,m_rec,key_blk,l_con:=.f.,k
+LOCAL m_browse,m_key,m_buf,m_col,m_screen,a_col:={},c_key,c_key1,m_poisk3:={||.f.},m_indexkey
+LOCAL m_time,m_recno,getlist:={},l_second:=.F.,l_print:={},m_poisk1:={||.f.},m_poisk2:={||.f.},m_poisk4:={||.f.}
+LOCAL nbottom,n_order,m_block,n1,i:=0,l_delete:=.f.,m_inkey,l_mode,j,n_winold:=WSELECT()
+LOCAL m_return:=.t.,x_mode:=IF(m_mode==NIL,"0",m_mode)
+DCL MENU
+
+  WSELECT(0)
+  n_win:=WOPEN(0,0,MAXROW(.t.),MAXCOL(.t.))
+  WSELECT(n_win)
+  IF (i:=ASCAN(a_br,{|x|x[1]==num}))<>0
+    m_browse:=a_br[i,2]
+    a_col:=a_br[i,3]
+    l_print:=a_br[i,4]
+    l_mode:=a_br[i,5]
+  ELSE
+    IF LEN(a_br)>=5
+      ADEL(a_br,LEN(a_br))
+      asize(A_BR,len(A_BR)-1)
+    ENDIF
+    AADD(a_br,{ALLTRIM(num),TBROWSEDB(2,1,maxrow()-2,MAXCOL()-1),{},{},"0"})
+    a_col:=   a_br[LEN(a_br),3]
+    l_print:= a_br[LEN(a_br),4]
+    sptabl1->(DS(alltrim(UPPER(num))))
+    IF sptabl1->(FOUND())
+        a_br[LEN(a_br),2]:colsep        := '│'
+        a_br[LEN(a_br),2]:SkipBlock     := { |n| SkipOrder(n) }
+        a_br[LEN(a_br),2]:goBottomBlock := { ||  DBGOBOTTOM() }
+        a_br[LEN(a_br),2]:goTopBlock    := { ||  DBGOTOP()  }
+        a_br[LEN(a_br),2]:freeze        := IF(EMPTY(sptabl1->frz),0,sptabl1->frz)
+        a_br[LEN(a_br),2]:cargo        := ALLTRIM(sptabl1->cargo)
+     ENDIF
+    m_browse:=a_br[LEN(a_br),2]
+    l_mode:=sptabl1->mode
+    a_br[LEN(a_br),5]:=l_mode
+    crbr1(m_browse,ALLTRIM(num),@a_col,@l_print)
+  ENDIF
+   m_browse:colorspec:='W/B,b/W,GR+/b,GR+/N,N/BG,w+/b,n+/w,w/n*,w+/n*,b+/w,w/b*,w+/b*'
+//  m_browse:colorspec:='W/B,GR+/W,GR+/b,GR+/N,N/BG,w+/b'
+  m_browse:autolite:=.f.
+  m_browse:rowPos:=1;m_browse:colPos:=1
+  m_browse:configure()
+  IF x_mode<>"1"
+    DBGOTOP()
+  ENDIF
+  SOUND(400,15)
+  ADD MENU UP_DOWN
+  ADD MENU SEARCH
+  ADD MENU LEFT_RIGHT
+  ADD MENU NAME "~Изменение" ITEMS {"Добавить новую строку Ins       ","Исправить значение    Ctrl+Enter" ,"Удалить строку        Delete    " ,"Присвоить код         Enter     " }  KEY {K_INS,K_CTRL_RET,K_DEL,K_ENTER}
+  ADD MENU PRINT
+  ADD MENU NAME "~Настройка" ITEMS  {"Подтверждение удаления записей  Alt+L " } KEY {K_ALT_L}
+  INIT MENU
+  nbottom:=MAXROW()-m_browse:nbottom
+  IF INDEXORD()<>0
+      m_len:=LEN(&(INDEXKEY(0)))
+  ELSE
+      m_len:=0
+  ENDIF
+  DISPBOX(m_browse:ntop-1 ,m_browse:nleft-1,m_browse:nbottom+1,m_browse:nRight+1, B_DOUBLE + " ",TOKEN(m_browse:colorspec,",",1))
+  @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("▒",m_len) COLOR "GR+/b"
+  @m_browse:ntop-1 ,m_browse:nleft SayDisp  m_browse:cargo COLOR (TOKEN(m_browse:colorspec,",",3))
+  STABILIZE BROWSE m_browse
+  SET CURSOR OFF
+  DO WHILE .T.
+    m_key:=0
+    SET ESCAPE ON
+//    m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},{1,1})
+    m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color1())
+    DO WHILE .NOT.(m_browse:stabilize()) .AND.((m_key:=inkey())==0);ENDDO
+     IF m_browse:stabilize()
+       m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color2())
+       m_browse:ColorRect({m_browse:RowPos,m_browse:ColPos,m_browse:RowPos,m_browse:ColPos},Color3())
+     ENDIF
+     IF m_key==0.AND..NOT.lApnd
+        m_time:=seconds()
+        DO WHILE (m_key:=inkey())==0.AND.SECONDS()-m_time<M_WAIT
+        ENDDO
+        IF m_key==0
+          m_screen:=SAVESCREEN(0,0,MAXROW(),MAXCOL())
+          COLORWIN(0,0,MAXROW(),MAXCOL(),'8/0');INKEY(0)
+          RESTSCREEN(0,0,MAXROW(),MAXCOL(),m_screen);LOOP
+        ENDIF
+     ENDIF
+     DEAL MENU
+     IF l_con.AND.m_key<>K_ENTER;m_browse:refreshAll();STABILIZE BROWSE m_browse;l_con:=.f.;ENDIF
+     DO CASE
+         CASE m_key == K_CTRL_RET.AND.(ISBIT(ASC(field->st),7).OR.ISBIT(ASC(field->st),8))
+          DispError("Данная строка; исправлению не подлежит !")
+         CASE m_key == K_CTRL_RET.AND..NOT.Islevel()
+          DispError("Ви не маєте повноважень на виправлення цього справочника !")
+        CASE m_key == K_CTRL_RET.OR.lApnd
+           IF INDEXORD()<>0
+             c_key:=&(INDEXKEY(0))
+           ELSE
+             c_key:=""
+           ENDIF
+           STABILIZE BROWSE m_browse
+           IF EVAL(a_col[m_browse:colPos,A_WHEN])
+              m_block:=m_browse:GetColumn(m_browse:colPos)
+              DBGOTO(RECNO())
+              m_buf:=EVAL(m_block:block)
+              READINSERT(.F.)
+              SET(_SET_ESCAPE,.NOT.(lApnd.AND.m_browse:colPos<>1))
+              IF ( m_Key >= 32 .AND. m_Key <= 239 )
+                 KEYBOARD CHR(m_Key)
+              ENDIF
+              @ROW(),COL() GET m_buf VALID  EVAL(a_col[m_browse:colPos,A_VALID],@m_buf) COLOR (TOKEN(m_browse:colorspec,",",4)) PICTURE IF(a_col[m_browse:colPos,A_PICT]==NIL,'@K '+my_pict,a_col[m_browse:colPos,A_PICT])
+              READ
+              IF LASTKEY()==K_ESC.AND.lApnd
+                 lApnd:=.F.
+                 l_second:=.F.
+                 dbskip(-1)
+                 SET ORDER TO n_order
+                 m_browse:refreshAll()
+                 LOOP
+              ENDIF
+              IF m_buf<>EVAL(m_block:block).OR.lapnd
+                 IF lApnd.AND.m_browse:colPos==1
+                    DBAPPEND()
+                    IF neterr()
+                     DispErr("Dont append")
+                   ENDIF
+                 ENDIF
+                 IF NetRlock()
+                   EVAL(m_block:block,m_buf)
+                   EVAL(a_col[m_browse:colPos,A_AFTER])
+                   DBGOTO(RECNO())
+                   UNLOCK
+                 ELSE
+                   DispErr("Файл заблокирован")
+                 ENDIF
+              ENDIF
+           ENDIF
+           IF lApnd
+              IF m_browse:colPos==m_browse:colCount
+                 m_browse:panHome()
+                 lApnd:=.f.
+                 l_second:=.F.
+                 l_con:=.t.
+                 SET ORDER TO n_order
+              ELSE
+                 m_browse:right()
+              ENDIF
+           ENDIF
+           IF INDEXORD()<>0
+             c_key1:=&(INDEXKEY(0))
+           ELSE
+             c_key1:=c_key
+           ENDIF
+           IF .NOT.lApnd.AND.INDEXORD()<>0.AND.c_key<>c_key1.AND..NOT.l_con
+                 m_browse:refreshAll()
+           ELSE
+                 m_browse:refreshCurrent()
+           ENDIF
+        CASE m_Key == K_DEL                                    /* удаление записи */
+              IF .NOT.Islevel()
+                DispError("Ви не маєте повноважень на виправлення цього справочника !")
+                LOOP
+              ENDIF
+                 IF l_delete.OR.( ANSWER("Вы действительно хотите уничтожить запись ?" )==YES )
+                     IF NetRlock()
+                         dbdelete()
+                       UNLOCK
+                     ELSE
+                       DispErr("Файл заблокирован")
+                     ENDIF
+                    DBSKIP(-1)
+                    DBSKIP(1)
+                    m_browse:RefreshAll()
+                 ENDIF
+        CASE m_key == K_INS.AND.l_mode<>"1"
+                 m_browse:panHome()
+                 m_browse:goBottom()
+                 STABILIZE BROWSE m_browse
+                 lApnd  := .T.
+                 m_browse:down()
+                 n_order:=INDEXORD()
+                 SET ORDER TO 0
+                 DBGOBOTTOM()
+          CASE m_key== K_ESC
+            m_return:=.f.
+            EXIT
+        DEAL BROWSE m_browse KEY m_key
+        SEARCH BROWSE m_browse KEY m_key
+        RANGE  BROWSE m_browse KEY m_key
+        SEEK   BROWSE m_browse KEY m_key
+        SCAN   BROWSE m_browse KEY m_key
+        CONT SEARCH  BROWSE m_browse KEY m_key
+        PRINT BROWSE m_browse KEY m_key
+
+        CASE m_key == K_ALT_R
+           DBREINDEX()
+        CASE m_key == K_ALT_1
+          IF INDEXORD()<>1
+            SET ORDER TO 1
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("═",m_len) COLOR "GR+/b"
+            m_len:=LEN(&(INDEXKEY(0)))
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("▒",m_len) COLOR "GR+/b"
+            m_value:=""
+          ENDIF
+        CASE m_key == K_ALT_0
+          IF INDEXORD()<>0
+            SET ORDER TO 0
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+          ENDIF
+          @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("═",m_len) COLOR "GR+/b"
+          m_len:=0
+          m_value:=""
+        CASE m_key == K_ALT_2
+          IF INDEXORD()<>2.AND..NOT.EMPTY(INDEXKEY(2))
+            SET ORDER TO 2
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("═",m_len) COLOR "GR+/b"
+            m_len:=LEN(&(INDEXKEY(0)))
+            @m_browse:nbottom+1,m_browse:nleft+11 SayDisp REPlicate("▒",m_len) COLOR "GR+/b"
+            m_value:=""
+          ENDIF
+        CASE (m_key == K_ENTER.OR.CHR(m_key)=="+")
+            IF ISBIT(ASC(field->st),8)
+              DispError("Данный  код не может быть использован !")
+            ELSE
+              EXIT
+            ENDIF
+        CASE m_key==K_BS.AND.LEN(m_value)>0
+           @m_browse:nbottom+1,m_browse:nleft+10+LEN(m_value) SayDisp "▒" COLOR "GR+/b"
+           m_value:=SUBSTR(m_value,1,LEN(m_value)-1)
+        CASE m_len<>0.AND.LEN(m_value)<m_len.AND.m_key>=32.AND.m_key<=254
+          m_rec:=RECNO()
+          IF DBSEEK(m_value+MyUpper(CHR(m_key)),.t.)
+           m_browse:rowPos:=1;m_browse:configure()
+           m_browse:refreshCurrent()
+           m_rec:=RECNO()
+           m_browse:refreshAll()
+           m_value+=MyUpper(CHR(m_key))
+           @m_browse:nbottom+1,m_browse:nleft+10+LEN(m_value) SayDisp MyUpper(CHR(m_key)) COLOR "GR+/b"
+          ELSE
+           DBGOTO(m_rec)
+           BeepErr()
+         ENDIF
+        OTHERWISE
+           IF (key_blk:=setkey(m_key))<>NIL
+             EVAL(key_blk,procname(),procline(),"")
+           ENDIF
+     ENDCASE
+  ENDDO
+  WCLOSE()
+  lapnd:=m_lapnd
+  SET ORDER TO 1
+  IF m_key==K_ENTER.OR.CHR(m_key)=="+"
+     IF VALTYPE(a_var)=="A"
+       a_dop:={}
+       i:=0;AEVAL(a_var,{|x|i++,AADD(a_dop,FIELDGET(FIELDNUM(a_var[i])))})
+    ENDIF
+  ENDIF
+  SAVEPAR(1)
+RETURN m_return
+STATIC function Color1()
+LOCAL x:={1,2},i:=ASC(field->st)
+DO CASE
+  CASE ISBIT(i,7) // Исправлять нельзя
+    x:={11,10}
+  CASE ISBIT(i,8) // Закрытый лицевой счет
+    x:={8,7}
+ENDCASE
+RETURN x
+STATIC function Color2()
+LOCAL x:={6,6},i:=ASC(field->st)
+DO CASE
+  CASE ISBIT(i,7) // Исправлять нельзя
+    x:={12,12}
+  CASE ISBIT(i,8) // Закрытый лицевой счет
+    x:={9,9}
+ENDCASE
+RETURN x
+STATIC function Color3()
+LOCAL x:={2,2},i:=ASC(field->st)
+DO CASE
+  CASE ISBIT(i,7) // Исправлять нельзя
+    x:={10,10}
+  CASE ISBIT(i,8) // Закрытый лицевой счет
+    x:={7,7}
+ENDCASE
+RETURN x
+EXTERNAL JUSTRIGHT
+STATIC Function IsLevel()
+IF TYPE("m_level")<>"N"
+  RETURN .t.
+ENDIF
+IF m_level<=3
+  RETURN .t.
+ENDIF
+RETURN .f.
+STATIC Function EditFull(var,m_browse,a_col)
+LOCAL i,n:=m_browse:colCount,m_col,n_pos:=1,m_key
+LOCAL n_win,a_say:={},m_buf,GetList:={},m_recno
+LOCAL n_order
+SAVEPAR()
+Screen->(DS(var))
+ASIZE(a_say,n)
+IF Screen->(FOUND())
+  n_win:=InitScr(var)
+  FOR i:=1 TO n
+    m_col:=m_browse:GetColumn(i)
+    IF .NOT.EMPTY(m_col:cargo)
+      a_say[i]:={VAL(TOKEN(m_col:cargo,",",1)),VAL(TOKEN(m_col:cargo,",",2)),m_col:block,TOKEN(m_col:cargo,",",3)}
+    ELSE
+      a_say[i]:={i,10,m_col:block,"w/b"}
+    ENDIF
+  NEXT
+  DO WHILE .t.
+    AEVAL(a_say,{|x|SETPOS(x[1],x[2]),DispOut(EVAL(x[3]),x[4])})
+    SETPOS(a_say[n_pos][1],a_say[n_pos][2]);DispOut(EVAL(a_say[n_pos][3]),"b/w")
+    m_key:=INKEY(0)
+    SETPOS(a_say[n_pos][1],a_say[n_pos][2]);DispOut(EVAL(a_say[n_pos][3]),a_say[n_pos][4])
+    DO CASE
+      CASE m_key==K_ESC
+        EXIT
+      CASE m_key==K_RIGHT
+        n_pos:=IF(n_pos==n,n,n_pos+1)
+      CASE m_key==K_LEFT
+        n_pos:=IF(n_pos==1,1,n_pos-1)
+      CASE m_key==K_DOWN
+        EVAL(m_browse:SkipBlock,1)
+      CASE m_key==K_UP
+        EVAL(m_browse:SkipBlock,-1)
+      CASE m_key==K_PGUP
+        EVAL(m_browse:SkipBlock,-20)
+      CASE m_key==K_PGDN
+        EVAL(m_browse:SkipBlock,20)
+      CASE m_key==K_CTRL_PGUP
+        EVAL(m_browse:GoTopBlock)
+      CASE m_key==K_CTRL_PGDN
+        EVAL(m_browse:GoBottomBlock)
+      CASE m_key == K_ENTER.AND.(ISBIT(ASC(field->st),7).OR.ISBIT(ASC(field->st),8))
+        DispError("Cтрока; виправленню не пiдлягає !")
+      CASE m_key == K_ENTER.AND..NOT.Islevel()
+        DispError("Ви не маєте повноважень на виправлення цього справочника !")
+      CASE m_key==K_ENTER
+        IF EVAL(a_col[n_pos,A_WHEN])
+          DBGOTO(RECNO())
+          m_buf:=EVAL(a_say[n_pos][3])
+          SET ESCAPE ON
+          @a_say[n_pos][1],a_say[n_pos][2] GET m_buf VALID  EVAL(a_col[n_pos,A_VALID],@m_buf) COLOR (TOKEN(m_browse:colorspec,",",4)) PICTURE IF(a_col[n_Pos,A_PICT]==NIL,'@K '+my_pict,a_col[n_Pos,A_PICT])
+          READ
+          IF m_buf<>EVAL(a_say[n_pos][3])
+            IF NetRlock()
+              EVAL(a_say[n_pos][3],m_buf)
+              EVAL(a_col[n_pos,A_AFTER])
+              DBGOTO(RECNO())
+              UNLOCK
+            ELSE
+              DispErr("Файл заблокирован")
+            ENDIF
+          ENDIF
+        ENDIF
+      CASE m_key==K_INS
+         EVAL(m_browse:GoBottomBlock)
+         lApnd  := .T.
+         m_recno:=RECNO()
+          n_order:=INDEXORD()
+          SET ORDER TO 0
+          DBGOBOTTOM()
+          DBSKIP()
+         n_pos:=1
+          DO WHILE .t.
+            AEVAL(a_say,{|x|SETPOS(x[1],x[2]),DispOut(EVAL(x[3]),x[4])})
+            IF EVAL(a_col[n_pos,A_WHEN])
+               DBGOTO(RECNO())
+               m_buf:=EVAL(a_say[n_pos][3])
+               SET(_SET_ESCAPE,.NOT.(lApnd.AND.n_pos<>1))
+               @a_say[n_pos][1],a_say[n_pos][2] GET m_buf VALID  EVAL(a_col[n_pos,A_VALID],@m_buf) COLOR (TOKEN(m_browse:colorspec,",",4)) PICTURE IF(a_col[n_Pos,A_PICT]==NIL,'@K '+my_pict,a_col[n_Pos,A_PICT])
+               READ
+               IF LASTKEY()==K_ESC
+                EXIT
+               ENDIF
+/*               IF LASTKEY()==K_UP.OR.LASTKEY()==K_LEFT
+                DO WHILE n_pos<>1
+                  n_pos--
+                  IF EVAL(a_col[n_pos,A_WHEN])
+                    EXIT
+                  ENDIF
+                ENDDO
+                LOOP
+               ENDIF */
+              IF n_Pos==1
+                  IF NetDBAP()
+                    EVAL(a_say[n_pos][3],m_buf)
+                    EVAL(a_col[n_Pos,A_AFTER])
+                    DBGOTO(RECNO())
+                    UNLOCK
+                  ELSE
+                    DispErr("Файл заблокирован")
+                  ENDIF
+              ELSE
+                IF NetRlock()
+                  EVAL(a_say[n_pos][3],m_buf)
+                  EVAL(a_col[n_Pos,A_AFTER])
+                  DBGOTO(RECNO())
+                  UNLOCK
+                ELSE
+                  DispErr("Файл заблокирован")
+                ENDIF
+              ENDIF
+            ENDIF
+            n_pos++
+            IF n_pos>n
+              n_pos:=1
+              m_recno:=RECNO()
+              DBSKIP()
+            ENDIF
+          ENDDO
+          lApnd:=.F.
+          n_pos:=1
+          SET ORDER TO n_order
+          dbGOTO(m_recno)
+    ENDCASE
+  ENDDO
+
+  m_browse:rowPos:=1;m_browse:configure()
+  m_browse:refreshCurrent()
+  m_browse:refreshAll()
+  WCLOSE(n_win)
+ELSE
+  DispError("Не знайдена повноекранна форма ;("+var+")")
+ENDIF
+SAVEPAR(1)
+RETURN .t.
+Function TypeKod(xrow,xcol,xcolor,xlen)
+  LOCAL a_mass:={},oCurGet:=GETACTIVE ( ),i
+  LOCAL m_var:=oCurGet:VarGet(),m_answer
+  LOCAL n_win,n_winold:=WSELECT(),b_block:={|x|NameKod(x)}
+  IF m_var==" ".OR.(m_var>="1".AND.m_var<="9")
+    IF xrow<>NIL.AND.xcol<>NIL
+      @xrow,xcol SayDisp NameKod(m_var) COLOR IF(Xcolor==NIL,"GR+/B",xcolor)
+    ENDIF
+    RETURN .t.
+  ENDIF
+  SavePar()
+  n_win:=WOPEN(4,20,22,60)
+  @0,0,MAXROW(),MAXCOL() BOX B_SINGLE+" " COLOR "w/b"
+  WSELECT(n_win)
+  FOR i:=0 TO 9
+    AADD(a_mass,STR(i,1)+" "+NameKod(STR(i,1)))
+  NEXT
+  @1,1 SayDisp PADC("Перелiк довiдникiв",MAXCOL()-2) COLOR "GR+/B"
+m_answer:=EditMass(a_mass,xrow,xcol,xcolor,xlen,b_block)
+WCLOSE()
+WSELECT(n_winold)
+SavePar(1)
+RETURN m_answer
+Function NameKod(var)
+  LOCAL m_str:=SPACE(15)
+  DO CASE
+    CASE var=="1"
+      RETURN "Матерiали та послуги "
+    CASE var=="2"
+      RETURN "Робiтнiкiв           "
+    CASE var=="3"
+      RETURN "Пiдприємств          "
+    CASE var=="4"
+      RETURN "Нарахувань i утримань"
+    CASE var=="5"
+      RETURN "                     "
+    CASE var=="6"
+      RETURN "Автомобiлей          "
+    CASE var=="7"
+      RETURN "Тракторiв i комбайнiв"
+    CASE var=="8"
+      RETURN "Основних засобiв     "
+    CASE var=="9"
+      RETURN "Фiз. осiб            "
+ENDCASE
+RETURN "                     "
+Function mySkip(x,n_row,n)
+  Local i:=IF(x>0,MIN(n-n_row,x),MAX(x,1-n_row))
+  n_row+=i
+RETURN i
+Function TypeScht(xrow,xcol,xcolor,xlen)
+  LOCAL a_mass:={"0               ",;
+                 "1 Дебетовий     ",;
+                 "2 Кредiтовий    ",;
+                 "3 Розгорнутий   ",;
+                 "4 Згорнутий     ",;
+                 "5 Позабалансовий" }
+  LOCAL oCurGet:=GETACTIVE ( ),m_Answer:={" ","Д","К","Р","З","П"}
+  LOCAL m_var:=oCurGet:VarGet(),m_browse,m_col,l_delete:=.t.
+  LOCAL n,n_row:=1,n_win,i,m_key,m_time,m_Screen,key_blk
+LOCAL cBufClr      := SETCOLOR()
+LOCAL lEscBuf      := SET(_SET_ESCAPE,.f.),n_winold:=WSELECT()
+IF m_var>="0".AND.m_var<="5"
+  oCurGet:VarPut(m_answer[VAL(m_var)+1])
+  oCurGet:UpdateBuffer()
+  SET CURSOR ON
+  RETURN (.T.)
+ENDIF
+i:=ASCAN(m_answer,m_var)
+IF i<>0
+   IF xrow<>NIL.AND.xcol<>NIL
+     @xrow,xcol SayDisp SUBSTR(a_mass[i],3) COLOR IF(Xcolor==NIL,"GR+/B",xcolor)
+   ENDIF
+   RETURN .t.
+ENDIF
+n_win:=WOPEN(4,20,22,60)
+@0,0,MAXROW(),MAXCOL() BOX B_SINGLE+" " COLOR "w/b"
+WSELECT(n_win)
+n:=LEN(a_mass)
+@1,1 SayDisp PADC("Перелiк типiв рахункiв",MAXCOL()-2) COLOR "GR+/B"
+m_browse:=TBROWSENEW(2,1,maxrow()-2,MAXCOL()-1)
+   //                    1    2    3      4    5    6    7    8    9    10   11    12
+   m_browse:colorspec:='W/B,b/W,GR+/b,GR+/N,N/BG,w+/b,n+/w,w/n*,w+/n*,b+/w,w/b*,w+/b*'
+   m_browse:autolite:=.f.
+   m_browse:rowPos:=1;m_browse:colPos:=1
+m_browse:SkipBlock:={|x|MySkip(x,@n_row,n)}
+m_browse:GoTopBlock:={||n_row:=1};m_browse:GoBottomBlock:={||n_row:=n}
+  m_col:=TBColumnNew()
+  m_col:block:={||a_mass[n_row]}
+  m_col:colorBlock:={||{1,2}}
+m_browse:AddColumn(m_col)
+   m_browse:configure()
+   STABILIZE BROWSE m_browse
+   SET CURSOR OFF
+   DO WHILE .T.
+      m_key:=0
+      SET ESCAPE ON
+      m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color1())
+      DO WHILE .NOT.(m_browse:stabilize()) .AND.((m_key:=inkey())==0)
+      ENDDO
+      IF m_browse:stabilize()
+        m_browse:ColorRect({m_browse:RowPos,1,m_browse:RowPos,m_browse:colCount},Color2())
+        m_browse:ColorRect({m_browse:RowPos,m_browse:ColPos,m_browse:RowPos,m_browse:ColPos},Color3())
+      ENDIF
+      IF m_key==0
+            m_time:=seconds()
+            DO WHILE (m_key:=inkey())==0.AND.SECONDS()-m_time<M_WAIT
+            ENDDO
+            IF m_key==0
+               m_screen:=SAVESCREEN(0,0,MAXROW(),MAXCOL())
+               COLORWIN(0,0,MAXROW(),MAXCOL(),'8/0');INKEY(0)
+               RESTSCREEN(0,0,MAXROW(),MAXCOL(),m_screen);LOOP
+            ENDIF
+      ENDIF
+      DO CASE
+         CASE m_key== K_ESC
+             EXIT
+         DEAL BROWSE m_browse KEY m_key
+          CASE CHR(m_key)>="0".AND.CHR(m_key)<="9"
+            n_row:=1+VAL(CHR(m_key))
+           m_browse:rowPos:=1;m_browse:configure()
+           m_browse:refreshCurrent()
+           m_browse:refreshAll()
+         CASE (m_key == K_ENTER.OR.CHR(m_key)=="+").AND.oCurGet<>NIL
+              EXIT
+         OTHERWISE
+            IF (key_blk:=setkey(m_key))<>NIL
+              EVAL(key_blk,procname(),procline(),"")
+            ENDIF
+      ENDCASE
+   ENDDO
+     WCLOSE()
+     WSELECT(n_winold)
+     SETCOLOR(cBufClr)
+     SET(_SET_ESCAPE,lEscBuf)
+     IF LASTKEY()==K_ENTER.OR.CHR(m_key)=="+"
+        oCurGet:VarPut(m_answer[n_row])
+        oCurGet:UpdateBuffer()
+        IF xrow<>NIL.AND.xcol<>NIL
+           @xrow,xcol SayDisp SUBSTR(a_mass[n_row],3) COLOR IF(Xcolor==NIL,"GR+/B",xcolor)
+        ENDIF
+        SET CURSOR ON
+        RETURN (.T.)
+     ELSE
+        SET CURSOR ON
+        RETURN (.F.)
+     ENDIF
+RETURN .t.
+
+Function EditMass(a_mass,xrow,xcol,xcolor,xlen,b_block,nlen)
+  LOCAL oCurGet:=GETACTIVE ( )
+  LOCAL m_var:=oCurGet:VarGet(),m_browse,m_col,l_delete:=.t.
+  LOCAL n_row:=1,i,m_key,m_Screen,key_blk
+  LOCAL n:=LEN(a_mass)
+  LOCAL n1:=IF(nlen==NIL,1,nlen)
+  m_browse:=TBROWSENEW(2,1,maxrow()-2,MAXCOL()-1)
+  m_browse:colorspec:='W/B,b/W'
+  m_browse:rowPos:=1;m_browse:colPos:=1
+  m_browse:SkipBlock:={|x|MySkip(x,@n_row,n)}
+  m_browse:GoTopBlock:={||n_row:=1};m_browse:GoBottomBlock:={||n_row:=n}
+  m_col:=TBColumnNew()
+  m_col:block:={||a_mass[n_row]}
+  m_col:colorBlock:={||{1,2}}
+  m_browse:AddColumn(m_col)
+  m_browse:configure()
+  SOUND(400,15)
+  STABILIZE BROWSE m_browse
+  SET CURSOR OFF
+  DO WHILE .T.
+      STABILIZE BROWSE m_browse
+      m_key:=inkey(0)
+      DO CASE
+         CASE m_key== K_ESC
+             EXIT
+          DEAL BROWSE m_browse KEY m_key
+          CASE CHR(m_key)>="0".AND.CHR(m_key)<="9"
+            n_row:=1+VAL(CHR(m_key))
+            m_browse:rowPos:=1;m_browse:configure()
+            m_browse:refreshCurrent()
+            m_browse:refreshAll()
+         CASE (m_key == K_ENTER.OR.CHR(m_key)=="+").AND.oCurGet<>NIL
+              EXIT
+         OTHERWISE
+            IF (key_blk:=setkey(m_key))<>NIL
+              EVAL(key_blk,procname(),procline(),"")
+            ENDIF
+      ENDCASE
+   ENDDO
+     IF LASTKEY()==K_ENTER.OR.CHR(m_key)=="+"
+        oCurGet:VarPut(LEFT(a_mass[n_row],n1))
+        oCurGet:UpdateBuffer()
+        IF xrow<>NIL.AND.xcol<>NIL
+           @xrow,xcol SayDisp EVAL(b_block,(LEFT(a_mass[n_row],1))) COLOR IF(Xcolor==NIL,"GR+/B",xcolor)
+        ENDIF
+        SET CURSOR ON
+        RETURN (.T.)
+     ELSE
+        SET CURSOR ON
+        RETURN (.F.)
+     ENDIF
+RETURN .t.
+Function dima02(m_buf,s_pict)
+  LOCAL x1:=VAL(TOKEN(s_pict,",",1)),;
+        x2:=VAL(TOKEN(s_pict,",",2)),;
+        x3:=VAL(TOKEN(s_pict,",",3)),;
+        x4:=VAL(TOKEN(s_pict,",",4)),m_clr
+  LOCAL n_win
+  SAVEPAR()
+  n_win:=WOPEN(X1,X2,X3,X4)
+  WSELECT(n_win)
+  M_CLR:=SETCOLOR("w/n")
+  WBOX(12)
+  SETCOLOR("gr+/n")
+  set cursor on
+  m_buf:=MEMOEDIT(m_buf,0,0,MAXROW(),MAXCOL(),.T.,"DIMA01",80)
+  set cursor off
+  SETCOLOR(m_clr)
+  wclose(N_WIN)
+  SAVEPAR(1)
+RETURN .T.
+Function DIma01(MODE,LINE,COL)
+  if MODE==1.OR.MODE==2
+    if lastkey()==K_CTRL_END.OR.lastkey()==K_F12
+      RETURN K_CTRL_W
+    ENDIF
+  ENDIF
+RETURN 0
+Function Sp15a(p)
+  LOCAL l:=Sp10->(Sp_vl("SP10","2"))
+  IF EMPTY(p)
+    RETURN .T.
+  ENDIF
+  IF l.AND.Sp15->(NetRlock())
+    Sp15->fam:=_FioFull(p)
+    Sp15->(DbUnlock())
+    RETURN .T.
+  ENDIF
+RETURN .F.
+Function TypeDox(xrow,xcol,xcolor,xlen)
+  LOCAL a_mass:={},oCurGet:=GETACTIVE ( ),i
+  LOCAL m_var:=oCurGet:VarGet(),m_answer
+  LOCAL n_win,n_winold:=WSELECT(),b_block:={|x|NameDox(x)}
+  IF m_var==" ".OR.(m_var>="1".AND.m_var<="9")
+    IF xrow<>NIL.AND.xcol<>NIL
+      @xrow,xcol SayDisp NameDox(m_var) COLOR IF(Xcolor==NIL,"GR+/B",xcolor)
+    ENDIF
+    RETURN .t.
+  ENDIF
+  SavePar()
+  n_win:=WOPEN(4,20,22,60)
+  @0,0,MAXROW(),MAXCOL() BOX B_SINGLE+" " COLOR "w/b"
+  WSELECT(n_win)
+  FOR i:=0 TO 8
+    AADD(a_mass,STR(i,1)+" "+NameDox(STR(i,1)))
+  NEXT
+  @1,1 SayDisp PADC("Перелiк ознак доходiв",MAXCOL()-2) COLOR "GR+/B"
+m_answer:=EditMass(a_mass,xrow,xcol,xcolor,xlen,b_block)
+WCLOSE()
+WSELECT(n_winold)
+SavePar(1)
+RETURN m_answer
+Function NameDox(var)
+  LOCAL m_str:=SPACE(15)
+  DO CASE
+    CASE var=="0"
+      RETURN "Прибутковий не утр."
+    CASE var=="1"
+      RETURN "Дохiд за осн. мiсцем "
+    CASE var=="2"
+      RETURN "Дохiд за неосн. мiсц."
+    CASE var=="3"
+      RETURN "Матерiальна допомога "
+    CASE var=="4"
+      RETURN "Дивiденти            "
+    CASE var=="5"
+      RETURN "Дохiд через комiсiйн."
+    CASE var=="6"
+      RETURN "Дохiд за аренду майна"
+    CASE var=="7"
+      RETURN "Iншi види доходiв    "
+    CASE var=="8"
+      RETURN "Суми вiдшкодування   "
+ENDCASE
+RETURN "                     "
+Function Grafik(m_month)
+  LOCAL n_win,m_day:=1,n_col:=0,n_row:=0
+  LOCAL n_sm:=0,n_day,n_last,m_key
+  LOCAL m_oths:=0,l_ret:=.F.
+  SET ESCAPE ON
+  n_win:=InitScr("GRAFIK")
+  @-1,18 SayDisp NTOCMONTH(m_month)+ "  " + Sp20->Year +" р. Графiк "+sp20->gr  COLOR "b/w"
+  n_sm:=DOW(STOD(Sp20->Year+STRZERO(m_month,2)+"01"))
+  n_sm:=IF(n_sm==1,7,n_sm-1)
+  n_last:=LASTDAYOM(STOD(Sp20->Year+STRZERO(m_month,2)+"01"))
+  FOR m_day:=1 TO n_last
+    m_oths:=ROUND(ASC(SUBSTR(Sp20->(FIELDGET(FIELDNUM("SHS"+STRZERO(m_month,2)))),m_day,1))/10,1)
+    Disp02(m_day,n_sm,IF(m_oths==0,"r+/b","W+/B"),m_oths,"w/b",@n_col,@n_row)
+  NEXT
+//  INKEY(0)
+  m_day:=1
+  DO WHILE .t.
+    m_oths:=ROUND(ASC(SUBSTR(Sp20->(FIELDGET(FIELDNUM("SHS"+STRZERO(m_month,2)))),m_day,1))/10,1)
+   Disp02(m_day,n_sm,IF(m_oths==0,"b/r","b/w"),m_oths,"b/w",@n_col,@n_row)
+   m_key:=INKEY(0)
+   Disp02(m_day,n_sm,IF(m_oths==0,"r+/b","W+/B"),m_oths,"w/b",@n_col,@n_row)
+   DO CASE
+    CASE m_key==K_UP.AND.n_row>1.AND.m_day>1
+      m_day--
+    CASE m_key==K_DOWN.AND.n_row<7.AND.m_day<n_last
+      m_day++
+    CASE m_key==K_RIGHT.AND.n_col<7.AND.m_day<=n_last-7
+      m_day+=7
+    CASE m_key==K_LEFT.AND.n_col>1.AND.m_day>7
+      m_day-=7
+    CASE m_key==K_F12.OR.m_key==K_ESC
+      EXIT
+    CASE m_key==K_CTRL_END
+      l_ret:=.t.
+      EXIT
+    CASE m_key==K_ENTER
+       Get02(m_day,n_row,n_col,m_month,n_last)
+    ENDCASE
+  ENDDO
+
+  WCLOSE(n_win)
+RETURN l_ret
+STATIC FUNCTION Disp02(m_day,n_sm,m_clr,m_oths,m_clr1,n_col,n_row)
+  n_col:=INT((m_day+5+n_sm)/7)
+  n_row:=(m_day+n_sm-1)%7
+#DEFINE   x1 8
+#DEFINE   x2 -2
+#DEFINE   y1 2
+#DEFINE   y2 0
+  IF n_row==0
+    n_row:=7
+  ENDIF
+  @y1*n_row+y2,x1*n_col+x2 SayDisp m_day PICTURE "99" COLOR m_clr
+IF m_oths<>0
+  @y1*n_row+y2,x1*n_col+x2+2 SayDisp m_oths PICTURE "999.9" COLOR m_clr1
+ELSE
+  @y1*n_row+y2,x1*n_col+x2+2 SayDisp "     " COLOR m_clr1
+ENDIF
+RETURN .t.
+STATIC Function Get02(m_day,n_row,n_col,m_month,n_last)
+LOCAL GetList:={},;
+  s_day:=Sp20->(FIELDGET(FIELDNUM("SHS"+STRZERO(m_month,2))))
+LOCAL   m_oths:=ROUND(ASC(SUBSTR(s_day,m_day,1))/10,1),i,;
+n_day:=0,s_oths:=0
+
+  @y1*n_row+y2,x1*n_col+x2+2 Get m_oths PICTURE "999.9" VALID m_oths<=24.AND.m_oths>=0 COLOR "GR+/n,GR+/n"
+  READ
+  IF LASTKEY()<>K_ESC
+    IF Sp20->(NetRlock())
+      s_day:=STUFF(s_day,m_day,1,CHR(m_oths*10))
+      Sp20->(FIELDPUT(FIELDNUM("SHS"+STRZERO(m_month,2)),s_day))
+//      s_day:=Sp20->(FIELDGET(FIELDNUM("SHS"+STRZERO(m_month,2))))
+      FOR i:=1 TO n_last
+        m_oths:=ROUND(ASC(SUBSTR(s_day,i,1))/10,1)
+        s_oths+=m_oths
+        IF m_oths<>0
+          n_day++
+        ENDIF
+      NEXT
+      Sp20->(FIELDPUT(FIELDNUM("OTDN"+STRZERO(m_month,2)),n_day))
+      Sp20->(FIELDPUT(FIELDNUM("OTHS"+STRZERO(m_month,2)),s_oths))
+    ENDIF
+  ENDIF
+RETURN .t.
+#UNDEF   x1
+#UNDEF   x2
+#UNDEF   y1
+#UNDEF   y2
+FUNCTION GetGsm()
+LOCAL n_workArea
+      IF EMPTY(m_schtgsm)
+        n_workArea:=SELECT() 
+        USE (m_uchpath+"\inst1") INDEX  (m_uchpath+"\inst1") new ALIAS myvar
+        RESTMEM m_schtgsm  // счет ГСМ - литры сумируются в головы
+        CLOSE myvar
+        SELECT(n_workArea)
+      endif
+RETURN m_schtgsm+"1"

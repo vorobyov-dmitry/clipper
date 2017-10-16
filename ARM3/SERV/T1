@@ -1,0 +1,37 @@
+Сравнение файлов CONV2.PRG и a:CONV2.PRG
+****** CONV2.PRG
+FUNCTION Conv2(VAR)
+LOCAL m_path:=IF(var==NIL,"D:\buhgal\mn\",var),l_exit:=.f.,getlist:={}
+clear
+****** a:CONV2.PRG
+FUNCTION Conv2(VAR)
+LOCAL m_path:=IF(var==NIL,"D:\buhgal\mn\",var),l_exit:=.f.,getlist:={},m_kmtop
+clear
+******
+
+****** CONV2.PRG
+      ENDIF
+    CASE funnum->vdoc==51.AND.funnum->kopr=="05"
+      IF Pfilpoz("fdbcr","vnum","funnum")
+****** a:CONV2.PRG
+      ENDIF
+    CASE funnum->vdoc==51
+      IF Pfilpoz("fdbcr","vnum","funnum")
+******
+
+****** CONV2.PRG
+            IF LEFT(fdbcr->dbt,2)=="06".OR.LEFT(fdbcr->crt,2)=="06"
+              sp22->(DBSEEK(STRZERO(MONTH(funnum->ddoc),2) + SUBSTR(fdbcr->dbt,5,2)))
+              IF sp22->koef<>0
+****** a:CONV2.PRG
+            IF LEFT(fdbcr->dbt,2)=="06".OR.LEFT(fdbcr->crt,2)=="06"
+              IF LEFT(fdbcr->dbt,2)=="06"
+                m_kmtop:=RIGHT(fdbcr->dbt,2)
+              ELSE
+                m_kmtop:=RIGHT(fdbcr->crt,2)
+              ENDIF
+              sp22->(DBSEEK(STRZERO(MONTH(funnum->ddoc),2) + m_kmtop))
+              IF sp22->koef<>0
+******
+
+

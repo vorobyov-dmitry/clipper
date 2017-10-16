@@ -1,0 +1,181 @@
+Сравнение файлов BUF1.PRG и E:BUF1.PRG
+FC: различия не найдены
+
+Сравнение файлов MAIN.PRG и E:MAIN.PRG
+***** MAIN.PRG
+  ind->kpm:=m_kpm
+  ind->svr:=ind->szp*0.1328
+  IF .not.drfo->(DBSEEK(ind->tin))
+***** E:MAIN.PRG
+  ind->kpm:=m_kpm
+  ind->svr:=ind->szp*0.1992
+  IF .not.drfo->(DBSEEK(ind->tin))
+*****
+
+***** MAIN.PRG
+Function CheckInd(m_year)
+  LOCAL m_codn1
+  IF EMPTY(ALLTRIM(Sp10->codn))
+    m_codn1:=Sp10->tabn
+  ELSE
+   m_codn1:=Sp10->codn
+  ENDIF
+IF .NOT.ind->(DS(m_codn1))
+  ind->(DBAP())
+***** E:MAIN.PRG
+Function CheckInd(m_year)
+  LOCAL m_codn
+IF EMPTY(ALLTRIM(Sp10->codn))
+  m_codn:=Sp10->tabn
+ELSE
+  m_codn:=Sp10->codn
+ENDIF
+IF .NOT.ind->(DS(m_codn))
+  ind->(DBAP())
+*****
+
+***** MAIN.PRG
+  ind->ktf:="1"
+  ind->tin:=m_codn1
+  ind->splat_r:=m_year
+***** E:MAIN.PRG
+  ind->ktf:="1"
+  ind->tin:=m_codn
+  ind->splat_r:=m_year
+*****
+
+***** MAIN.PRG
+  ind->zvit_p:="0"
+  ind->krpou:=m_krpou
+  ind->dfd:=date()
+  ind->kpfu:=m_kppidpr
+  ind->kop:=m_codn
+  DO CASE
+***** E:MAIN.PRG
+  ind->zvit_p:="0"
+/*
+@09,10 SAY m_krpou
+@10,10 SAY " "+VALTYPE(m_krpou)
+@11,10 SAY ""+ind->krpou+" "+VALTYPE(ind->krpou)
+*/
+  ind->krpou:=m_krpou
+  DO CASE
+*****
+
+***** MAIN.PRG
+  ENDCASE
+    ind->otk:=IF(sp10->kpn=="4".OR.sp10->kpn=="6".OR.sp10->kpn=="7","0","1")
+***** E:MAIN.PRG
+  ENDCASE
+    ind->dfd:=date()
+    ind->kpfu:=m_kppidpr
+    ind->kop:=m_codn
+    ind->otk:=IF(sp10->kpn=="4".OR.sp10->kpn=="6".OR.sp10->kpn=="7","0","1")
+*****
+
+***** MAIN.PRG
+***** E:MAIN.PRG
+Function calcmonth
+LOCAL m_month=1,s_month
+  LOCAL k_pen
+m_month:=GetMonth()
+  IF m_month==0
+    RETURN .f.
+  ENDIF
+  USE (m_workpath+"memvar") INDEX (m_workpath+"memvar") ALIAS myvar NEW
+  k_pen:=ALLTRIM(RESTVAR1("k_pen","PN"))
+  CLOSE myvar
+  s_month:=StrZero(m_month,2)
+  NET  use (m_sprpath+"sp10") index (m_sprpath+"sp10" ) NEW READONLY
+  NET  use (m_sprpath+"sp08") index (m_sprpath+"sp08" ) NEW READONLY
+  NET  use (m_mainpath+"flish") NEW READONLY
+  USE ("P04T06B.DBF") NEW ALIAS tabl6;zap
+  INDEX ON field->NUMIDENT  TO  ("tabl6")
+  USE ("P04T07B.DBF") NEW ALIAS tabl7;zap
+  INDEX ON field->NUMIDENT TO  ("tabl7")
+  m_gauge1:=initGauge("Вибiрка з особистих рахункiв ")
+  DO WHILE .NOT.FLISH->(EOF())
+       Sp08->(DS(flish->kopu))  // По справочнику кодов оплат
+       Sp10->(DS(flish->tabn))
+   IF (s_month==flish->month)
+      IF Sp08->t6_1=="1"
+        IF .NOT.tabl6->(DS(Sp10->codn))
+                t6_app()
+        ENDIF
+        tabl6->sum_total+=flish->sum
+      ENDIF
+      IF Sp08->t6_2=="1"
+        IF .NOT.tabl6->(DS(Sp10->codn))
+                t6_app()
+        ENDIF
+        tabl6->sum_max+=flish->sum
+      IF AT(flish->kopu,k_pen)<>0
+        IF .NOT.tabl6->(DS(Sp10->codn))
+                t6_app()
+        ENDIF
+        tabl6->sum_ins+=flish->sum
+      ENDIF
+      IF Sp08->t7!=" "
+        IF .NOT.tabl7->(DS(Sp10->codn))
+        ENDIF
+      ENDIF
+ENDIF
+      flish->(DBSKIP())
+    m_gauge1:=DispGauge(m_gauge1,FLISH->(recno()/LASTREC()))
+ENDDO
+DelGauge(m_gauge1)
+DelGauge(m_gauge1)
+CLOSE base sp10,flish,tabl6,tabl7,sp08
+RETURN .t.
+FUNCTION t6_app()
+tabl6->(DBAP())
+tabl6->ROWNUM:=tabl6->RECNO()
+tabl6->NUMIDENT:=sp10->codn
+tabl6->LN:=dostowin(sp10->fam)
+tabl6->NM:=dostowin(sp10->imja)
+tabl6->FTN:=dostowin(sp10->otch)
+tabl6->ZO:=1
+tabl6->ZIC:=1
+tabl6->OTK:=1
+tabl6->EXP:=0
+RETURN .t.
+
+
+
+
+
+Function Getmnt(m_mnt)
+  LOCAL m_month1:="01",m_year1:="2010",GetList:={}
+SET ESCAPE ON
+@03,7,08,55 BOX B_SINGLE+" " COLOR "w/bg"
+@03,8 SayDisp "Виберiть мiсяць розрахунку" COLOR "n/w"
+m_year1:=STR(YEAR(DATE()),4)
+m_month1:=STRZERO(MONTH(DATE())-1,2)
+@6,10 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
+@6,15 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2011".and.m_year1>="2000")
+READ
+m_mnt:=RIGHT(m_year1,2)+m_month1
+IF LASTKEY()==K_ESC
+  RETURN .f.
+ENDIF
+RETURN .t.
+*****
+
+Сравнение файлов MAIN1.PRG и E:MAIN1.PRG
+FC: различия не найдены
+
+Сравнение файлов SP08.PRG и E:SP08.PRG
+FC: различия не найдены
+
+Сравнение файлов SP10.PRG и E:SP10.PRG
+FC: различия не найдены
+
+Сравнение файлов T2.PRG и E:T2.PRG
+FC: различия не найдены
+
+Сравнение файлов TESTCODN.PRG и E:TESTCODN.PRG
+FC: различия не найдены
+
+Сравнение файлов ZAN.PRG и E:ZAN.PRG
+FC: различия не найдены
+

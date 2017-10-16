@@ -1,0 +1,9 @@
+.prg.obj:
+    clipper $< /n/w
+
+.obj.exe:
+  rtlink fi RASCHPAJ,sprav,ct2us50 lib new,ct250
+
+RASCHPAJ.OBJ :   RASCHPAJ.prg
+
+RASCHPAJ.exe : RASCHPAJ.OBJ

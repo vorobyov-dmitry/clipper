@@ -1,0 +1,1473 @@
+#include "new.ch"
+MEMVAR m_workpath,m_temppath,m_vdisk,m_bufpath,m_syspath,m_tabn,m_level
+MEMVAR m_kassapath,a_menu,m_computer
+Function UdZrpl
+  LOCAL m_gauge,m_kopu:="100",m_gauge1,l_first:=.t.
+  LOCAL m_ksash,m_ksash2,m_ndskopr,l_nds:=.f.,m_count,n:=1
+  LOCAL n_win1,n_error:=0,s_sum:=0
+  LOCAL s_stm:=0,s_nds:=0,s_kvo:=0,n_count:=1,n1,GetList:={}
+  LOCAL m_color,s_stm1:=0,m_ddoc1:=CTOD(""),m_ddoc2:=CTOD(""),m_screen
+  IF m_level>3
+    DispError("Ви не маєте повноважень на запуск цiєї программи;Звернiться до адмiнiстратора системи")
+    RETURN .f.
+  ENDIF
+  IF ANSWERu("Заносити даннi iз накладних в рахунок зар. плати ?")<>YES
+    RETURN .f.
+  ENDIF
+  m_SCREEN :=savescreen(9,15,16,74)
+  DispBox(9,15,14,70,B_SINGLE+" ","w+/bg")
+  Shadow(9,15,14,70)
+  @ 10,17 sayDisp 'Занести данi по накладних в рахунок зар. платнi' COLOR "n/Bg"
+  @ 11,17 sayDisp '           по КО з           по                 '  COLOR "n/Bg"
+  m_ddoc1:=BOM(DATE()-10)
+  @ 11,36 get m_ddoc1 COLOR "gr+/N" VALID (SetDdoc2(@m_ddoc1,@m_ddoc2))
+  @ 11,50 get m_ddoc2 COLOR "gr+/N"  VALID m_ddoc2>=m_ddoc1
+  SET ESCAPE ON
+  read
+  restscreen(9,15,16,74,m_screen)
+  IF LASTKEY()==K_ESC
+      set escape off
+      set cursor off
+      RETURN .F.
+  ENDIF
+  m_color:=SETCOLOR("w/b")
+  NET USE (m_workpath+"nds") NEW READONLY
+  m_ksash:=nds->ksash
+  m_ksash2:=nds->ksash2
+  m_ndskopr:=nds->kopr
+  CLOSE nds
+  NET USE (m_workpath+"memvar") INDEX (m_workpath+"memvar") NEW ALIAS myvar
+  m_kopu:=RestVar1("m_kopu1","NK")
+  CLOSE myvar
+  SELECT NAkl1
+  SET FILTER TO nakl1->vdoc=="1" // Витрата
+  Nakl1->(DBGOTOP())
+  MyCreate("NAKL01","buf")
+  SELECT buf
+  INDEX ON buf->NumNakl+buf->kopu TO (m_temppath+"buf")
+  m_gauge:=InitGauge("Вибiрка iз бази накладних",1)
+  n:=nakl1->(LASTREC())
+  IF FILE(m_workpath+"01.txt")
+    NET USE (m_workpath+"arh") NEW
+    IF arh->(NetDBAP())
+      arh->name:="Зан. данних по утр. в рах. зар. платнi "
+      arh->text:=MEMOREAD(m_workpath+"01.txt")
+    ENDIF
+    CLOSE arh
+  ENDIF
+
+  SETPRC(0,0)
+  SET PRINTER TO (m_workpath+"01.txt")
+  SET PRINTER ON
+n_win1:=WOPEN(0,0,8,80,.t.)
+Wselect(n_win1)
+WBOX(12)
+@-1,0 SayDisp PADC("Занесення данних по утриманню сум  накладних в рахунок зар. платнi ",80) COLOR "n/w"
+SETPOS(0,0)
+?"Занесення данних по утр. в рах. зар. платнi"
+?" за перiод з " +My_Dtos(m_ddoc1)+" по  "  +My_Dtos(m_ddoc2)
+Wselect(0)
+  DO WHILE .NOT.nakl1->(EOF())
+    IF nakl1->ddoc>=m_ddoc1.AND.nakl1->ddoc<=m_ddoc2.AND.nakl1->kod1=="3".AND..not.IsBit(ASC(nakl1->state),3) // Получено в счет зарплаты
+      IF Nakl1->(NetRLock())
+        // Отметить как оплаченную
+      nakl1->npch1:="  850";nakl1->ddoc1:=nakl1->ddoc;nakl1->sum1:=0
+      nakl1->ndoc1:=nakl1->ndoc
+      s_kvo++
+      nakl2->(DS(nakl1->vnum))
+      Spr01->(DS(nakl1->kopr))
+      s_stm:=0
+      IF spr01->potr<>"5"
+        IF EMPTY(nakl1->tabn)
+            WSELECT(n_win1)
+            ?"Попередження !!! Незаповнений табельний номер в накладнiй N "+nakl1->ndoc
+            WSELECT(0)
+        ENDIF
+        DO WHILE .NOT.nakl2->(EOF()).AND.nakl1->vnum==nakl2->vnum
+    //       IF .NOT.EMPTY(nakl1->tabn)
+            Kaptka1->(DS(nakl2->kod))
+            buf->(DBAP())
+            buf->NumNakl:=nakl1->ndoc
+            buf->tabn:=nakl1->tabn
+            buf->kod :=nakl2->kod
+            buf->ddoc:=nakl1->ddoc
+            buf->kvo :=nakl2->kvo
+            buf->sum :=nakl2->stm
+            buf->sum1 :=kaptka1->prise2*nakl2->kvo
+            buf->nds :=nakl2->nds
+            IF buf->nds<>0
+              l_nds:=.t.
+            ENDIF
+            buf->glv :=nakl2->glv
+            buf->kopu:=IF(EMPTY(Kaptka1->kopu),m_kopu,Kaptka1->kopu)
+            buf->dbt :=kaptka1->ksash2
+            buf->crt :=kaptka1->ksash
+            buf->kopr:=spr01->kpr
+        IF EMPTY(buf->dbt)
+          Wselect(n_win1)
+          ?"Помилка при обробцi документа N ",nakl1->ndoc," за ",nakl1->ddoc
+          ?"     Невизначен код реалiзацiї для ",nakl2->kod
+          n_error++
+          Wselect(0)
+        ENDIF
+            buf->mol :=nakl1->otp
+            nakl1->sum1+=nakl2->stm+nakl2->nds
+            s_stm+=buf->sum+buf->nds
+            s_nds+=nakl2->nds
+            s_stm1+=buf->sum1
+    //      ELSE
+      //     ENDIF
+          nakl2->(DBSKIP())
+        ENDDO
+      ELSE
+        Nakl3->(DS(nakl1->vnum))
+        DO WHILE .NOT.nakl3->(EOF()).AND.nakl1->vnum==nakl3->vnum
+    //       IF .NOT.EMPTY(nakl1->tabn)
+            Kaptka1->(DS(nakl2->kod))
+            buf->(DBAP())
+            buf->NumNakl:=nakl1->ndoc
+            buf->tabn:=nakl3->tabn
+            buf->kod :=nakl2->kod
+            buf->ddoc:=nakl1->ddoc
+            buf->kvo :=nakl3->kvo
+            buf->sum :=nakl3->stm
+            buf->sum1 :=kaptka1->prise2*nakl3->kvo
+            buf->nds :=nakl3->nds
+            IF buf->nds<>0
+              l_nds:=.t.
+            ENDIF
+            buf->glv :=nakl3->glv
+            buf->kopu:=IF(EMPTY(Kaptka1->kopu),m_kopu,Kaptka1->kopu)
+            buf->dbt :=kaptka1->ksash2
+            buf->crt :=kaptka1->ksash
+            buf->kopr:=spr01->kpr
+            buf->mol :=nakl1->otp
+            nakl1->sum1+=buf->sum+buf->nds
+            s_stm+=buf->sum+buf->nds
+            s_stm1+=buf->sum1
+            s_nds+=buf->nds
+    //      ELSE
+      //     ENDIF
+          nakl3->(DBSKIP())
+        ENDDO
+        IF EMPTY(buf->dbt)
+          Wselect(n_win1)
+          ?"Помилка при обробцi документа N ",nakl1->ndoc," за ",nakl1->ddoc
+          ?"     Невизначен код реалiзацiї для ",nakl2->kod
+          n_error++
+          Wselect(0)
+        ENDIF
+      ENDIF
+      IF ROUND(nakl1->sum1,2)==ROUND(Nakl1->sum,2)
+        nakl1->state:=CHR(SETBIT(ASC(nakl1->state),1))
+      ELSE
+        nakl1->state:=CHR(CLEARBIT(ASC(nakl1->state),1))
+        Wselect(n_win1)
+        ?"Помилка при обробцi документа N ",nakl1->ndoc," за ",nakl1->ddoc
+        ?"     Сума накладної=",nakl1->sum," Cума утримань=",Nakl1->sum1
+          n_error++
+        Wselect(0)
+      ENDIF
+      s_sum+=ROUND(s_stm,2)
+      nakl1->(DbUnlock())
+  ELSE
+    DispError("Неможливо заблокувати накладну "+nakl1->ndoc)
+  ENDIF
+  ENDIF
+    m_gauge:=DispGauge(m_gauge,n_count++/n)
+    nakl1->(DBSKIP())
+  ENDDO
+  m_gauge:=DispGauge(m_gauge,1)
+  buf->(DBGOTOP())
+  m_count:=1
+  USE (m_bufpath+"fd1") NEW
+  USE (m_bufpath+"fd2") NEW
+  USE (m_bufpath+"funnum") NEW
+  USE (m_bufpath+"fdbcr") NEW
+  USE (m_bufpath+"fglv") NEW
+  USE (m_bufpath+"fkvo2") NEW
+  USE (m_syspath+"fvnum") NEW ALIAS fv
+  IF n_error==0.OR.ANSWERu("Знайдено помилок "+STR(n_error,2)+";заносити данi в базу")==YES;
+     .AND.MyLOCK()
+  DO WHILE .NOT. fd1->(EOF())
+    IF fd1->oper=="N1".AND.fd1->ddoc>=m_ddoc1.AND.fd1->ddoc<=m_ddoc2
+      IF l_first
+        IF ANSWERu("База вже мiстить утримання за продукцiю;Удаляти цi документи?")<>YES
+           EXIT
+        ENDIF
+        l_first:=.f.
+      ENDIF
+      IF pFilPoz1('fd1', {||(fd1->vnuma==fd2->vnuma)} , 'fd2')
+        DO WHILE .NOT. fd2->(EOF()).AND.fd1->vnuma==fd2->vnuma
+          fd2->(DBDELETE())
+          fd2->(DBSKIP())
+        ENDDO
+      ENDIF
+      fd1->(DBDELETE())
+    ENDIF
+    fd1->(DBSKIP())
+  ENDDO
+  DO WHILE .NOT. funnum->(EOF())
+    IF funnum->oper=="N1".AND.funnum->ddoc>=m_ddoc1.AND.funnum->ddoc<=m_ddoc2
+      IF l_first
+        IF ANSWERu("База вже мiстить проводки за отриману продукцiю;Удаляти цi документи?")<>YES
+           EXIT
+        ENDIF
+        l_first:=.f.
+      ENDIF
+     IF ( funnum->vdoc >= 200 .AND. funnum->vdoc <= 299 ) .OR.;
+           ( funnum->vdoc >= 300 .AND. funnum->vdoc <= 399 )
+       IF PfilPoz1('fUNNUM',{||(funnum->vnum==fdbcr->vnum)},'fdbcr')
+          fglv->(DBDELETE())
+       ENDIF
+      ENDIF
+     IF ( funnum->vdoc >= 100 .AND. funnum->vdoc <= 199 ) .OR.;
+           ( funnum->vdoc >= 300 .AND. funnum->vdoc <= 399 )
+       IF PfilPoz1('fUNNUM',{||(funnum->vnum==fkvo2->vnum)},'fkvo2')
+          fkvo2->(DBDELETE())
+       ENDIF
+      ENDIF
+      IF pFilPoz1('funnum', {||(funnum->vnum==fdbcr->vnum)} , 'fdbcr')
+        DO WHILE .NOT. fdbcr->(EOF()).AND.funnum->vnum==fdbcr->vnum
+          fdbcr->(DBDELETE())
+          fdbcr->(DBSKIP())
+        ENDDO
+      ENDIF
+      funnum->(DBDELETE())
+    ENDIF
+    funnum->(DBSKIP())
+  ENDDO
+  buf->(DBGOTOP())
+  m_gauge1:=InitGauge("Занесення утримань в буферну базу данних",2)
+  m_count:=3;n:=3*buf->(LASTREC())
+  DO WHILE .NOT. buf->(EOF())
+         fd1->(DBAPPEND())
+         fd1->npch:=850
+         fd1->ndoc:=VAL(buf->NumNakl)
+         DO CASE
+          CASE buf->glv<>0
+             fd1->vdoc:=3
+          CASE buf->kvo<>0
+             fd1->vdoc:=2
+          OTHERWISE
+          fd1->vdoc:=1
+         ENDCASE
+         fd1->kopu:=buf->kopu
+         fd1->ddoc:=IF(DAY(buf->ddoc)>25,CTOD(STUFF(DTOC(buf->ddoc),1,2,"25")),buf->ddoc)
+         fd1->vnuma:=fv->vnuma++
+         fd1->oper:="N1"
+         DO WHILE buf->kopu==fd1->kopu.AND.fd1->ndoc==VAL(buf->NumNakl).AND..NOT.buf->(EOF())
+           fd2->(DBAPPEND())
+           fd2->tabn:=buf->tabn
+           fd2->kvo:=buf->kvo
+           fd2->glv:=buf->glv
+           fd2->sum:=buf->sum+buf->nds
+           fd2->vnuma:=fd1->vnuma
+           m_gauge1:=DispGauge(m_gauge1,m_count++/n)
+           buf->(DBSKIP())
+         ENDDO
+  ENDDO
+  buf->(DBGOTOP())
+  DO WHILE .NOT. buf->(EOF())
+         funnum->(DBAPPEND())
+         funnum->npch:=850
+         funnum->ndoc:=VAL(buf->NumNakl)
+         funnum->vnum:=fv->vnum++
+         funnum->kopr:=buf->kopr
+         funnum->otp :=buf->mol
+         funnum->ddoc:=IF(DAY(buf->ddoc)>25,CTOD(STUFF(DTOC(buf->ddoc),1,2,"25")),buf->ddoc)
+         funnum->oper:="N1"
+         DO CASE
+          CASE buf->glv<>0
+             funnum->vdoc:=260
+             fglv->(DBAP())
+             fglv->vnum:=funnum->vnum
+             fglv->glv:=buf->glv
+            fdbcr->(DBAPPEND())
+            fdbcr->dbt:="700"+buf->kopu
+            fdbcr->crt:=buf->dbt
+            fdbcr->kvo:=buf->kvo
+            fdbcr->stm:=buf->sum+buf->nds
+            fdbcr->vnum:=funnum->vnum
+            m_count++
+           buf->(DBSKIP())
+          OTHERWISE
+          funnum->vdoc:=60
+           fdbcr->(DBAPPEND())
+           fdbcr->dbt:="700"+buf->kopu
+           fdbcr->crt:=buf->dbt
+           fdbcr->vnum:=funnum->vnum
+         DO WHILE funnum->ndoc==VAL(buf->NumNakl).AND.;
+            funnum->kopr==buf->kopr.AND.funnum->otp ==buf->mol.AND.;
+           fdbcr->dbt=="700"+buf->kopu.AND.fdbcr->crt==buf->dbt
+           fdbcr->kvo+=buf->kvo
+           fdbcr->stm+=buf->sum+buf->nds
+           m_count++
+           buf->(DBSKIP())
+        ENDDO
+         ENDCASE
+        m_gauge1:=DispGauge(m_gauge1,m_count/n)
+  ENDDO
+  buf->(DBGOTOP())
+  IF l_nds
+  funnum->(DBAPPEND())
+  funnum->npch:=850
+  funnum->ndoc:=1
+  funnum->vnum:=fv->vnum++
+  funnum->kopr:=m_ndskopr
+  funnum->ddoc:=IF(DAY(buf->ddoc)>25,CTOD(STUFF(DTOC(buf->ddoc),1,2,"25")),buf->ddoc)
+  funnum->oper:="N1"
+  funnum->vdoc:=60
+  DO WHILE .NOT. buf->(EOF())
+      IF buf->nds<>0
+        fdbcr->(DBAPPEND())
+        fdbcr->dbt:=buf->dbt
+        fdbcr->crt:=IF(buf->glv==0,m_ksash,m_ksash2)
+        fdbcr->stm:=buf->nds
+        fdbcr->vnum:=funnum->vnum
+      ENDIF
+      m_gauge1:=DispGauge(m_gauge1,m_count++/n)
+      buf->(DBSKIP())
+  ENDDO
+  ENDIF
+  DelGauge(m_gauge1)
+WSELECT(n_win1)
+?" Реалiзацiя (кредит 46 рахунку) -Дебет 70  "+SumToStr(s_sum)
+?" Кiлькiсть накладних "+LTRIM(str(s_kvo))
+?" Занесення данних зроблено "+my_dtos(DATE())
+?"                  виконав "+ALLTRIM(_Fio(m_tabn))
+
+  ELSE
+WSELECT(n_win1)
+?" Реалiзацiя (кредит 46 рахунку) -Дебет 70  "+SumToStr(s_sum)
+?" Кiлькiсть накладних "+LTRIM(str(s_kvo))
+?" Занесення данних не зроблено "+my_dtos(DATE())
+?"                  не виконав "+ALLTRIM(_Fio(m_tabn))
+DispError("Даннi про утримання в базу данних не занесенi")
+  ENDIF
+INKEY(5)
+ Wclose(n_win1)
+SET PRINTER OFF
+SET PRINTER TO
+  WSELECT(0)
+  DelGauge(m_gauge)
+  DBUNLOCKALL()
+  SELECT NAkl1
+  SET FILTER TO
+  CLOSE BASE buf,FD1,FD2,fv,fdbcr,funnum,fkvo2,fglv
+//  FERASE(m_temppath+"buf")
+  SETCOLOR(m_color)
+  DBCOMMITALL()
+RETURN .t.
+Function MyCreate(var,m_alias)
+  LOCAL a_struct:={}
+  SavePar()
+  USE  (m_vdisk+"Struct") INDEX (m_vdisk+"Struct") NEW READONLY
+  struct->(DS(var))
+  DO WHILE .NOT.struct->(EOF()).AND.var==struct->name
+    AADD(a_struct,{struct->field_name,struct->field_type,struct->Field_len,struct->field_dec})
+    struct->(DBSKIP())
+  ENDDO
+  DBCREATE(m_temppath+m_alias,a_struct)
+  USE (m_temppath+m_alias ) NEW
+  CLOSE struct
+  SavePar(1)
+RETURN .t.
+FUNCTION Pfilpoz1(file1,b_block,file2)
+  LOCAL m_recno:=(file2)->(RECNO())
+  DO WHILE .NOT.(file2)->(EOF())
+    IF EVAL(b_block)
+      RETURN .t.
+    ENDIF
+    (file2)->(DBSKIP())
+  ENDDO
+  (file2)->(DBGOTO(m_recno))
+RETURN .f.
+STATIC Function MyLock()
+LOCAL i:=1,m_var:=.f.
+LOCAL l_fd1,l_fd2,l_funnum,l_fdbcr,l_fkvo2,l_fglv,l_fv
+l_fd1:=l_fd2:=l_funnum:=l_fdbcr:=l_fkvo2:=l_fglv:=l_fv:=.f.
+DO WHILE .NOT.(l_fd1.AND.l_fd2.AND.l_funnum.AND.l_fdbcr.AND.l_fkvo2.AND.l_fglv.AND.l_fv)
+  IF .NOT.l_fd1
+    IF fd1->(FLOCK())
+      l_fd1:=.t.
+    ELSE
+      IF ALERT("Файл fd1 (Кассова вiдомicть);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+  IF .NOT.l_fd2
+    IF fd2->(FLOCK())
+      l_fd2:=.t.
+    ELSE
+      IF ALERT("Файл fd2 (Кассова вiдомicть);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+  IF .NOT.l_fUNNUM
+    IF funnum->(FLOCK())
+      l_funnum:=.t.
+    ELSE
+      IF ALERT("Файл funnum (Бухгалтерська справка);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+  IF .NOT.l_fdbcr
+    IF fdbcr->(FLOCK())
+      l_fdbcr:=.t.
+    ELSE
+      IF ALERT("Файл fdbcr (Бухгалтерська справка);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+  IF .NOT.l_fglv
+    IF fglv->(FLOCK())
+      l_fglv:=.t.
+    ELSE
+      IF ALERT("Файл fglv (Бухгалтерська справка);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+  IF .NOT.l_fkvo2
+    IF fkvo2->(FLOCK())
+      l_fkvo2:=.t.
+    ELSE
+      IF ALERT("Файл fkvo2 (Бухгалтерська справка);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+  IF .NOT.l_fv
+    IF fv->(FLOCK())
+      l_fv:=.t.
+    ELSE
+      IF ALERT("Файл fv (Службовий);неможливо заблокувати !",{"Завершити","Продовжити"},"n/bg,w/b")==2
+        LOOP
+      ELSE
+        RETURN .f.
+      ENDIF
+    ENDIF
+  ENDIF
+ENDDO
+RETURN .t.
+#command DISPERROR(<var3>,<var4>,<var1>,<var2>) => n_error++  ;;
+        WSELECT(n_win1);;
+        QOUT("Помилка ! КО ордер N "+STR(<var3>,5)+" за "+DTOC(<var4>));;
+        QOUT(SPACE(5)) ;;
+        QQOUT(<var1>) ;;
+        QOUT(SPACE(5)) ;;
+        QQOUT(<var2>);n_error++;;
+        WSELECT(0);l_error:=.t.
+
+#command DISPWARNING(<var3>,<var4>,<var1>,<var2>) =>  n_warning++ ;;
+        WSELECT(n_win1);;
+        QOUT("Попередження ! КО N "+STR(<var3>,5)+" за "+DTOC(<var4>)) ;;
+        QOUT(SPACE(5)) ;;
+        QQOUT(<var1>) ;;
+        QOUT(SPACE(5)) ;;
+        QQOUT(<var2>);n_warning++;;
+        WSELECT(0)
+
+FUnction kassa02
+  LOCAL m_screen,m_ddoc1,m_ddoc2,m_file,m_sum1:=0,m_sum2:=0,m_sum2a:=0,m_sum1a:=0
+  LOCAL i,j,k,n_warning:=0,n_error:=0,GetList:={},n_win1,m_color
+  LOCAL a_nakl1:={},a_nakl2:={},m_ndoc,m_gauge,l_error:=.f.
+  IF m_level>3
+    DispError("Ви не маєте повноважень на запуск цiєї программи;Звернiться до адмiнiстратора системи")
+    RETURN .f.
+  ENDIF
+  IF ANSWERu("Заносити оплату накладних за готiвку ?")<>YES
+    RETURN .f.
+  ENDIF
+  SELECT NAkl1
+  SET FILTER TO nakl1->vdoc=="1" // Витрата
+  nakl1->(DBSETORDER(2))
+  NET USE (m_kassapath+"fks08") NEW READONLY
+  m_SCREEN :=savescreen(1,19,08,64)
+  DispBox(1,19,06,62,B_SINGLE+" ","w+/bg")
+  Shadow(1,19,06,62)
+  m_ddoc1:=BOM(DATE()-10)
+  @ 02,20 sayDisp 'Провести вiдмiтку оплати накладних ' COLOR "n/Bg"
+  @ 03,20 sayDisp 'за готiвку по КО з          по      '  COLOR "n/Bg"
+  @ 03,39 get m_ddoc1 COLOR "gr+/N"  VALID (SetDdoc2(m_ddoc1,@m_ddoc2))
+  @ 03,51 get m_ddoc2 COLOR "gr+/N"  VALID m_ddoc2>=m_ddoc1
+  SET ESCAPE ON
+  read
+  IF LASTKEY()==K_ESC
+      set escape off
+      set cursor off
+      restscreen(1,19,08,64,m_screen)
+      RETURN .F.
+  ENDIF
+  fks08->(DBGOTOP())
+  m_gauge:=InitGauge("Вибiрка iз бази касових ордерiв",1)
+  m_color:=SETCOLOR("w/b")
+  n_win1:=WOPEN(0,0,8,80,.t.)
+  Wselect(n_win1)
+  WBOX(12)
+  @-1,0 SayDisp PADC("Занесення данних по оплатi накладних за готiвку",80) COLOR "n/w"
+  IF FILE(m_workpath+"02.txt")
+    NET USE (m_workpath+"arh") NEW
+    IF arh->(NetDBAP())
+      arh->name:="ЗВIТ ПРО ВIДМ. ОПЛАТИ ЗА ГОТIВКУ "
+      arh->text:=MEMOREAD(m_workpath+"02.txt")
+    ENDIF
+    CLOSE arh
+  ENDIF
+  SETPOS(0,0)
+  SET PRINTER TO (m_workpath+"02.txt")
+  SET PRINTER ON
+  ?"ЗВIТ ПРО ВIДМIТКУ ОПЛАТИ ЗА ГОТIВКУ НАКЛАДНИХ"
+  ?"    за перiод з "+my_dtos(m_ddoc1)+" по "+my_dtos(m_ddoc2)
+  DO WHILE .not.fks08->(EOF())
+//    IF LEFT(fks08->ksash,2)=="46".AND.fks08->ndoc1<>0.AND.fks08->ddoc<=m_ddoc2.AND.fks08->ddoc>=m_ddoc1
+    IF LEFT(fks08->ksash,2)=="46".AND.fks08->ddoc<=m_ddoc2.AND.fks08->ddoc>=m_ddoc1
+      a_nakl1:={fks08->ndoc,0,0,{},fks08->ddoc,IF(fks08->kpr<"100","0","1")}
+      i:=fks08->ndoc;m_ndoc:=fks08->ndoc1
+      DO WHILE .NOT.fks08->(EOF()).AND.fks08->ndoc1==m_ndoc.AND.i==fks08->ndoc
+        a_nakl1[2]:=a_nakl1[2]+fks08->sum
+        a_nakl1[3]:=a_nakl1[3]+fks08->nds
+        AADD(a_nakl1[4],{fks08->ksash,fks08->sum,fks08->nds,fks08->kvo ,fks08->glv})
+        fks08->(DBSKIP())
+      ENDDO
+      IF(a_nakl1[6]=="0",m_sum1+=a_nakl1[2],m_sum1a+=a_nakl1[2])
+      IF nakl1->(DS(STR(m_ndoc,6))).AND..not.IsBit(ASC(nakl1->state),3)
+        a_nakl2:={nakl1->ndoc,0,0,{},nakl1->ddoc}
+        nakl2->(DS(nakl1->vnum))
+        m_ndoc:=nakl1->vnum
+        DO WHILE .NOT.nakl2->(EOF()).AND.nakl2->vnum==m_ndoc
+          kaptka1->(DS(nakl2->kod))
+          a_nakl2[2]:=a_nakl2[2]+nakl2->stm+nakl2->nds
+          a_nakl2[3]:=a_nakl2[3]+nakl2->nds
+          kaptka1->(DS(nakl2->kod))
+          AADD(a_nakl1[4],{kaptka1->ksash2,nakl2->stm,nakl2->nds,nakl2->kvo ,nakl2->glv})
+          nakl2->(DBSKIP())
+        ENDDO
+        l_error:=.f.
+        IF a_nakl1[6]=="1" // Возврат за неполученную продукцию
+          IF .NOT.ISBIT(ASC(nakl1->state),1)
+            DispError(i,a_nakl1[5],;
+          "Накл. N "+LTRIM(a_nakl2[1])+" за "+DTOC(a_nakl2[5]),"не вiдмiчена як оплачена")
+          ENDIF
+          IF ISBIT(ASC(nakl1->state),2)
+            DispError(i,a_nakl1[5],;
+          "Накл. N "+LTRIM(a_nakl2[1])+" за "+DTOC(a_nakl2[5]),"- продукцiя вiдпущена")
+          ENDIF
+        ENDIF
+        IF a_nakl1[5]<a_nakl2[5]
+          DispWarning(i,a_nakl1[5],;
+          "Дата накладної N "+LTRIM(a_nakl2[1])+" за "+DTOC(a_nakl2[5]),"пiзнiша КО")
+        ENDIF
+        IF ROUND(a_nakl1[2],2)<>ROUND(a_nakl2[2],2)
+          DispError(i,a_nakl1[5],;
+          "Сума накладної N "+LTRIM(a_nakl2[1])+"("+ALLTRIM(STR(a_nakl2[2],10,2))+")"+" за "+DTOC(a_nakl2[5])+" не спiвпадає с сумою КО ["+ALLTRIM(STR(a_nakl1[2],10,2))+"]","")
+        ELSE
+          IF ROUND(a_nakl1[3],2)<>ROUND(a_nakl2[3],2)
+            DispError(i,a_nakl1[5],;
+            "ПДВ  накладної N "+LTRIM(a_nakl2[1])+"("+ALLTRIM(STR(a_nakl2[3],10,2))+")"+" за "+DTOC(a_nakl2[5])+" не спiвпадає з ПДВ  КО["+ALLTRIM(STR(a_nakl1[3],10,2))+"]","")
+          ENDIF
+        ENDIF
+         IF .NOT.l_error
+          IF nakl1->(NetRlock())
+            IF a_nakl1[6]=="1" // Возврат за неполученную продукцию
+              nakl1->state:=CHR(CLEARBIT(ASC(nakl1->state),1))
+              m_sum2a+=a_nakl2[2]
+              nakl1->npch1:="  801";nakl1->ddoc1:=a_nakl1[5];nakl1->sum1:=0
+              nakl1->ndoc1:=STR(a_nakl1[1],6);nakl1->kod1:="1"
+            ELSE
+              nakl1->state:=CHR(SETBIT(ASC(nakl1->state),1))
+              m_sum2+=a_nakl2[2]
+              nakl1->npch1:="  801";nakl1->ddoc1:=a_nakl1[5];nakl1->sum1:=a_nakl2[2]
+              nakl1->ndoc1:=STR(a_nakl1[1],6);nakl1->kod1:="1"
+            ENDIF
+            nakl1->(DbUnlock())
+          ELSE
+            DispError("Неможливо заблокувати накладну")
+          ENDIF
+        ENDIF
+      ELSE
+        DispError(a_nakl1[1],a_nakl1[5],"вiдсутня накладна N "+ALLTRIM(STR(m_ndoc,6))+" сума ["+ALLTRIM(STR(a_nakl1[2],10,2))+"]","")
+      ENDIF
+   ELSE
+    fks08->(DBSKIP())
+   ENDIF
+    WSELECT(0)
+    m_gauge:=DispGauge(m_gauge,fks08->(RECNO())/Fks08->(LASTREC()))
+  ENDDO
+  CLOSE Fks08
+  DelGauge(m_gauge)
+WSELECT(n_win1)
+?"Загальна сума касових ордерiв:"
+?" Реалiзацiя "+SumToStr(m_sum1,14)+" Повернення :"+SumToStr(m_sum1a,14)
+?"Загальна сума накладних      :"
+?" Реалiзацiя "+SumToStr(m_sum2,14)+" Повернення :"+SumToStr(m_sum2a,14)
+?" Занесення зроблено "+my_dtos(DATE())
+?"           виконав "+ALLTRIM(_Fio(m_tabn))
+WSELECT(0)
+SET PRINTER OFF
+SET DEVICE TO SCREEN
+INKEY(5)
+ Wclose(n_win1)
+SET PRINTER OFF
+  WSELECT(0)
+  DelGauge(m_gauge)
+  DBUNLOCKALL()
+  SELECT NAkl1
+  nakl1->(DBSETORDER(1))
+  SET FILTER TO
+  SETCOLOR(m_color)
+  DBCOMMITALL()
+RETURN .t.
+Function MyMonth(n)
+  LOCAL a_month:={;
+"сiчень",;
+"лютий",;
+"березень",;
+"квiтень",;
+"травень",;
+"червень",;
+"липень",;
+"серпень",;
+"вересень",;
+"жовтень",;
+"листопад",;
+"грудень"}
+IF n>=1.AND.n<=12
+  RETURN a_month[n]
+ENDIF
+RETURN ""
+Function SetDdoc2(m_ddoc1,m_ddoc2)
+  IF .NOT.EMPTY(m_ddoc1)
+    m_ddoc2:=EOM(m_ddoc1)
+  ENDIF
+RETURN .t.
+Function ViewOtch(var)
+  LOCAL m_color,n_win1
+  IF .NOT.FILE(m_workpath+var+'.txt')
+    DispError("Данний звiт вiдсутнiй")
+    RETURN .f.
+  ENDIF
+  m_color:=SETCOLOR("w/b")
+n_win1:=WOPEN(4,0,20,80,.t.)
+Wselect(n_win1)
+WBOX(12)
+@-1,0 SayDisp PADC(" Перегляд звiта",80) COLOR "n/w"
+MEMOEDIT(MEMOREAD(m_workpath+var+'.txt'),0,0,MAXROW(),MAXCOL(),.f.,"f001",254)
+WCLOSE(n_win1)
+WSELECT(0)
+SETCOLOR(m_color)
+RETURN .t.
+Function f001(var1,var2,var3)
+  LOCAL m_file:=m_workpath+a_menu[LEN(a_menu)]+".txt"
+  IF var1==1.OR.var1==2
+    IF LASTKEY()==K_F2
+      IF ALERT("Друкувати звiт ?",{"Да","Нi"},"n/bg,w/b")==1
+        IF SPOOLACTIV().AND.SPOOLCOUNT()<6
+          SPOOLADD(m_file)
+        ELSE
+          PRINTFILE(m_file,.t.)
+        ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+RETURN 0
+Function Ms03(vid)
+  LOCAL m_color,m_ddoc1:=CTOD(""),m_ddoc2:=CTOD(""),m_screen
+  LOCAL m_gauge,s_str,n_kod,i,n_kvo2,n_kvo,m_recno:=1
+  LOCAL m_mol:="  ",m_page:=0,m_fio,n,GetList:={},a_shapka:={},m_name
+  IF ANSWERu("Формувати звiт по комiрниковi;по накладних?")<>YES
+    RETURN .f.
+  ENDIF
+  m_SCREEN :=savescreen(9,15,16,74)
+  DispBox(9,15,14,70,B_SINGLE+" ","w+/bg")
+  Shadow(9,15,14,70)
+  @ 10,17 sayDisp '     Формувати звiт по виписаних накладних      ' COLOR "n/Bg"
+  @ 11,17 sayDisp '                 з           по                 '  COLOR "n/Bg"
+  @ 12,17 sayDisp 'по комiрнику                                    '  COLOR "n/Bg"
+  m_ddoc1:=BOM(DATE()-10)
+  @ 11,36 get m_ddoc1 COLOR "gr+/N" VALID (SetDdoc2(@m_ddoc1,@m_ddoc2))
+  @ 11,50 get m_ddoc2 COLOR "gr+/N"  VALID m_ddoc2>=m_ddoc1
+  @ 12,30 Get m_mol COLOR "GR+/N" VALID Sp02->(Sp_vl("SP02",,12,34,"_mol(Sp02->mol)","GR+/bg"))
+  m_fio:=_mol(m_mol)
+  SET ESCAPE ON
+  read
+  IF LASTKEY()==K_ESC
+      set escape off
+      set cursor off
+      RETURN .F.
+  ENDIF
+  m_fio:=_mol(m_mol)
+  m_color:=SETCOLOR("w/b")
+  m_gauge:=InitGauge("Виборка iз бази накладних",2)
+  SELECT NAkl1
+  SET FILTER TO nakl1->vdoc==vid // Витрата
+  Nakl1->(DBGOTOP())
+  SETPRC(0,0)
+  OpenPrn(m_workpath+"03.txt")
+  Screen->(DS("SHP003"))
+  n:=MLCOUNT(screen->vd,254)
+  FOR i:=2 TO n
+    AADD(a_shapka,ALLTRIM(MEMOLINE(screen->vd,254,i)))
+  NEXT
+  m_name:=ALLTRIM(MEMOLINE(screen->vd,254,1))+IF(vid=="0","(приход)","(витрата )")+" "+m_mol+" "+m_fio
+  n_Kod:=ATNUM("┴",a_shapka[n-1],2)
+  n_kvo:=ATNUM("┴",a_shapka[n-1],3)
+  n_kvo2:=ATNUM("┴",a_shapka[n-1],4)
+  s_str:=REPLICATE("-",LEN(a_shapka[n-1]))
+  SetWidthPrn(LEN(a_shapka[n-1]))
+  a_shapka:=SetShapka(a_shapka)
+  n:=Nakl1->(LASTREC())
+  DO WHILE .NOT.nakl1->(EOF())
+    IF nakl1->ddoc>=m_ddoc1.AND.nakl1->ddoc<=m_ddoc2.AND.nakl1->otp==m_mol.AND..not.IsBit(ASC(nakl1->state),3)
+      nakl2->(DS(nakl1->vnum))
+      DO WHILE .NOT.nakl2->(EOF()).AND.nakl1->vnum==nakl2->vnum
+        IF INKEY()==K_ESC
+          IF ANSWERu("Завершити программу?")==YES
+            restscreen(9,15,16,74,m_screen)
+            DelGauge(m_gauge)
+            SELECT NAkl1
+            SET FILTER TO
+            SET PRINTER TO
+            SET DEVICE TO SCREEN
+            RETURN .f.
+          ENDIF
+        ENDIF
+        SkipLinePrn(a_shapka,m_name)
+        @PROW(),1 Say nakl1->ndoc
+        kaptka1->(DS(nakl2->kod))
+        @PROW(),n_kod Say LEFT(Kaptka1->name,33)
+        @PROW(),n_kvo Say SumToStr(Nakl2->kvo,)
+        @PROW(),n_kvo2 Say Nakl2->glv PICTURE "@z 999999.99"
+        @PROW()+1,0 Say s_str
+        nakl2->(DBSKIP())
+      ENDDO
+    ENDIF
+    m_gauge:=DispGauge(m_gauge,m_recno++/n)
+    nakl1->(DBSKIP())
+  ENDDO
+  n:=(GetEndPage()-PROW()-6)/2
+  FOR i:=1 TO n
+    @PROW()+2,0 SAY s_str
+  NEXT
+  @PROW()+2,0 Say "Звiт прийняв ___________________ "
+  m_gauge:=DelGauge(m_gauge)
+  restscreen(9,15,16,74,m_screen)
+  SELECT NAkl1
+  SET FILTER TO
+  ClosePrn()
+  IF SPOOLACTIV().AND.SPOOLCOUNT()<6
+    SPOOLADD(m_workpath+"03.txt")
+  ELSE
+    FileToPrn(m_workpath+"03.txt")
+  ENDIF
+
+RETURN .t.
+Function FormMs04
+  LOCAL i:=1,a_kod:={},n:=Nakl1->(LASTREC())
+  LOCAL m_gauge,m_ddoc1:=CTOD(""),m_ddoc2:=CTOD(""),m_screen
+  LOCAL a_struct:={{"tabn","C",4,0}},GetList:={},j
+/*  IF ANSWERu("Формувати звiт по лiмiтованiй продукцiї")<>YES
+    RETURN .f.
+  ENDIF */
+  m_SCREEN :=savescreen(9,15,16,74)
+  DispBox(9,15,14,70,B_SINGLE+" ","w+/bg")
+  Shadow(9,15,14,70)
+  @ 10,17 sayDisp 'Вибрати данi по накладних лiмiтованої продукцiї' COLOR "n/Bg"
+  @ 11,17 sayDisp 'по працiвникам   з           по                 '  COLOR "n/Bg"
+  m_ddoc1:=BOM(DATE()-10)
+  @ 11,36 get m_ddoc1 COLOR "gr+/N" VALID (SetDdoc2(@m_ddoc1,@m_ddoc2))
+  @ 11,50 get m_ddoc2 COLOR "gr+/N"  VALID m_ddoc2>=m_ddoc1
+  SET ESCAPE ON
+  read
+  restscreen(9,15,16,74,m_screen)
+  IF LASTKEY()==K_ESC
+      set escape off
+      set cursor off
+      RETURN .F.
+  ENDIF
+  USE (m_workpath+"Nakl4")
+  IF NetErr()
+    DispError("З файлом лiмiтованої продукцiї ;працюї iнший користувач;перерахунок неможливий")
+    RETURN .f.
+  ENDIF
+  NET USE (m_workpath+"Spr02") INDEX (m_workpath+"Spr02") NEW
+  i:=1
+  DO WHILE .NOT.Spr02->(EOF())
+    AADD(a_struct,{"X"+STRZERO(i,3),"N",14,2})
+    Spr02->(DBSKIP())
+  ENDDO
+  CLOSE Spr02
+  CLOSE Nakl4
+  DBCREATE(m_workpath+"Nakl4",a_struct)
+  USE (m_workpath+"Nakl4") NEW
+  INDEX ON Nakl4->tabn TO (m_workpath+"Nakl4")
+  Nakl1->(DBSETORDER(0))
+  Nakl1->(DBGOTOP())
+  m_gauge:=InitGauge("Перегляд бази накладних")
+  DO WHILe .NOT.Nakl1->(EOF())
+    IF Nakl1->vdoc=="1".AND..NOT.IsBit(nakl1->state,3).AND.NumPotr(Nakl1->kopr)=="0"
+      nakl2->(DS(nakl1->vnum))
+      DO WHILE .NOT.nakl2->(EOF()).AND.nakl1->vnum==nakl2->vnum
+          IF (j:=ASCAN(a_kod,{|x|(x[1]==nakl2->kod)}))<>0
+            Nakl4->(DS(Nakl1->tabn))
+            IF .NOT.Nakl4->(FOUND())
+              Nakl4->(DBAPPEND())
+              Nakl4->tabn:=Nakl1->tabn
+            ENDIF
+            Nakl4->(FIELDPUT(j+1,Nakl2->kvo+FIELDGET(j+1)))
+          ENDIF
+        nakl2->(DBSKIP())
+      ENDDO
+    ENDIF
+    nakl1->(DBSKIP())
+    m_gauge:=DispGauge(m_gauge,i++/n)
+  ENDDO
+  DelGauge(m_gauge)
+  Nakl1->(DBSETORDER(1))
+  CLOSE Nakl4
+  // зберегти m_ddoc1 i m_ddoc2
+  NET USE (m_workpath+"memvar") INDEX (m_workpath+"memvar") NEW ALIAS myvar
+  SaveVar1("m_ddoc1",m_ddoc1,"N3")
+  SaveVar1("m_ddoc2",m_ddoc2,"N3")
+  FOR i:=1 TO LEN(a_kod)
+    SaveVar1("X"+STRZERO(i,3),a_kod[i],"N3")
+  NEXT
+  CLOSE myvar
+RETURN .t.
+Function FormNal1()
+  LOCAL m_ndoc,m_vnum,m_rec2:=nakl2->(RECNO()),m_sum:=0,m_nds:=0,i,m_rec1:=Nakl1->(RECNO())
+  LOCAL m_gauge,n,m_count:=1,m_screen,m_ddoc1,m_ddoc2,GetList:={},m_color,n_win1
+  LOCAL s_kvo:=0,l1:=.f.,l2:=.f.,m_sum1:=0,m_nds1:=0,s_ndoc:="",s_ndoc1:="",l3
+  LOCAL s_ndoc3:="",n_error:=0
+  fvnum->(DBGOTO(2))
+  IF fvnum->(NetRlock())
+    fvnum->reg:=SETBIT(fvnum->reg,m_computer)
+    m_vnum:=fvnum->vnum
+    fvnum->vnum:=fvnum->vnum+2
+  ELSE
+    DispError("Вiдмовлено в доступi")
+    RETURN .f.
+  ENDIF
+  IF m_level>3
+    DispError("Ви не маєте повноважень на запуск цiєї программи;Звернiться до адмiнiстратора системи")
+    RETURN .f.
+  ENDIF
+  SAVEPAR()
+  m_SCREEN :=savescreen(9,15,16,74)
+  DispBox(9,15,14,70,B_SINGLE+" ","w+/bg")
+  Shadow(9,15,14,70)
+  @ 10,17 sayDisp 'Формувати податкову накладну в рахунок зар. платнi' COLOR "n/Bg"
+  @ 11,17 sayDisp 'по накладних     з           по                 '  COLOR "n/Bg"
+  m_ddoc1:=BOM(DATE()-10)
+  @ 11,36 get m_ddoc1 COLOR "gr+/N" VALID (SetDdoc2(@m_ddoc1,@m_ddoc2))
+  @ 11,50 get m_ddoc2 COLOR "gr+/N"  VALID m_ddoc2>=m_ddoc1
+  SET ESCAPE ON
+  read
+  restscreen(9,15,16,74,m_screen)
+  IF LASTKEY()==K_ESC
+      set escape off
+      set cursor off
+      RETURN .F.
+  ENDIF
+  m_color:=SETCOLOR("w/b")
+  SELECT NAkl1
+//  SET FILTER TO nakl1->vdoc=="1" // Витрата
+  Nakl1->(DBGOTOP())
+  n:=nakl1->(LASTREC())
+  m_gauge:=InitGauge("Вибiрка iз бази накладних",1)
+  IF FILE(m_workpath+"04.txt")
+    NET USE (m_workpath+"arh") NEW
+    IF arh->(NetDBAP())
+      arh->name:="Формування под. накл. в рахунок зар. платнi "
+      arh->text:=MEMOREAD(m_workpath+"04.txt")
+    ENDIF
+    CLOSE arh
+  ENDIF
+  SETPRC(0,0)
+  SET PRINTER TO (m_workpath+"04.txt")
+  SET PRINTER ON
+  n_win1:=WOPEN(0,0,8,80,.t.)
+  Wselect(n_win1)
+  WBOX(12)
+  @-1,0 SayDisp PADC("Формування податкової накладної по накладних в рахунок зар. платнi ",80) COLOR "n/w"
+  SETPOS(0,0)
+  ?"Формування податкової накладної по накладних в рахунок зар. платнi "
+  ?" за перiод з " +My_Dtos(m_ddoc1)+" по  "  +My_Dtos(m_ddoc2)
+  Wselect(0)
+    m_sum:=0;m_nds:=0
+    m_sum1:=0;m_nds1:=0
+    DO WHILE .NOT.nakl1->(EOF())
+      IF nakl1->ddoc1>=m_ddoc1.AND.nakl1->ddoc1<=m_ddoc2.AND.;
+        nakl1->kod1=="3".AND..not.IsBit(ASC(nakl1->state),3).AND.;
+        IsBit(ASC(nakl1->state),1).AND.nakl1->vdoc=="1" // Получено в счет зарплаты i оплачено
+        IF Nakl1->(NetRLock())
+          nakl2->(DBSEEK(nakl1->vnum))
+          s_kvo++
+          DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
+              IF nalog2->(NetDbAp())
+                nalog2->NumNakl:=nakl1->ndoc
+                nalog2->ddoc := nakl1->ddoc
+                nalog2->kod  := nakl2->kod
+                Kaptka1->(DS(nakl2->kod))
+                nalog2->name := kaptka1->name
+                nalog2->izm  := Kaptka1->izm
+                nalog2->kvo  := nakl2->kvo
+                nalog2->prise:= nakl2->prise
+                IF  nakl2->nds<>0
+                  nalog2->vnum := STR(m_vnum,6)
+                  l1:=.t.
+                  nalog2->sum1 :=nakl2->stm
+                  nalog2->nds  := nakl2->nds
+                  nalog2->stm  := nalog2->sum1 + nalog2->nds
+                  m_sum+=nakl2->stm;m_nds+=nakl2->nds
+                  l3:=.t.
+                ELSE
+                  l2:=.t.
+                  l3:=.f.
+                  nalog2->vnum := STR(m_vnum+1,6)
+                  nalog2->sum4 :=nakl2->stm
+                  nalog2->stm  := nalog2->sum4
+                  m_sum1+=nakl2->stm;m_nds1+=nakl2->nds
+                ENDIF
+              ELSE
+                DispError("Неможливо добавити строку в податкову накладну")
+              ENDIF
+              nalog2->(dbUnlock())
+              nakl2->(Dbskip())
+          ENDDO
+          nakl1->ndoc2:=IF(l3,STR(fvnum->ndoc,LEN(nalog1->ndoc)),STR(fvnum->ndoc+1,LEN(nalog1->ndoc)))
+          nakl1->ddoc2:=Date()
+          s_ndoc1+=ALLTRIM(nakl1->ndoc)+","
+          IF Nakl1->sum1<>Nakl1->sum
+            s_ndoc3+=ALLTRIM(nakl1->ndoc)+","
+          ENDIF
+          nakl1->(DbUnlock())
+        ENDIF
+      ENDIF
+      m_gauge:=DispGauge(m_gauge,m_count++/n)
+      nakl1->(DBSKIP())
+    ENDDO
+  IF l1
+    IF nalog1->(NetDbAp())
+      nalog1->vnum:=STR(m_vnum,6)
+      nalog1->ndoc:=STR(fvnum->ndoc,LEN(nalog1->ndoc))
+      fvnum->ndoc:=fvnum->ndoc+1
+      nalog1->ddoc:=DATE()
+      s_ndoc+=ALLTRIM(nalog1->ndoc)
+      SetPred01()
+      Nalog1->vdoc:="1"
+      nalog1->nds:=m_nds
+      nalog1->sum:=m_sum
+      nalog1->(dbUnlock())
+    ELSE
+          DispError("Неможливо добавити заголовок в податкову накладну")
+    ENDIF
+  ENDIF
+  IF l2
+    IF nalog1->(NetDbAp())
+      nalog1->vnum:=STR(m_vnum+1,6)
+      nalog1->ndoc:=STR(fvnum->ndoc,LEN(nalog1->ndoc))
+      fvnum->ndoc:=fvnum->ndoc+1
+      s_ndoc+=","+ALLTRIM(nalog1->ndoc)
+      nalog1->ddoc:=DATE()
+      SetPred01()
+      Nalog1->vdoc:="1"
+      nalog1->nds:=m_nds1
+      nalog1->sum:=m_sum1
+      nalog1->(dbUnlock())
+    ELSE
+          DispError("Неможливо добавити заголовок в податкову накладну")
+    ENDIF
+  ENDIF
+  IF fvnum->(NetRlock())
+//    fvnum->name:=BLANK(fvnum->name,.t.)
+    fvnum->reg:=CLEARBIT(fvnum->reg,m_computer)
+    fvnum->(DBCOMMIT())
+    fvnum->(DbUnlock())
+  ELSE
+    DispError("Вiдмовлено в доступi")
+  ENDIF
+Wselect(n_win1)
+?" Реалiзацiя (кредит 46 рахунку) -Дебет 70  "+SumToStr(m_sum+m_nds+m_sum1+m_nds1)
+?"             ПДВ                           "+SumToStr(m_nds+m_nds1)
+?" Кiлькiсть накладних "+LTRIM(str(s_kvo))
+s_ndoc1:=LEFT(s_ndoc1,LEN(s_ndoc1)-1)
+DO WHILE .NOT.EMPTY(s_ndoc1)
+  i:=IF(LEN(s_ndoc1)>60,RAT(",",LEFT(s_ndoc1,60)),LEN(s_ndoc1))
+  IF i==0
+    i:=60
+  ENDIF
+  ?LEFT(s_ndoc1,i)
+  s_ndoc1:=SUBSTR(s_ndoc1,i+1)
+ENDDO
+?" Занесення данних зроблено "+my_dtos(DATE())
+?"                  виконав "+ALLTRIM(_Fio(m_tabn))
+IF .NOT.EMPTY(s_ndoc3)
+  ?"Увага !!! Рiзнi суми оплати i накладної по "+LEFT(s_ndoc3,LEN(s_ndoc3)-1)
+ENDIF
+?"Номер под. накладної N"+s_ndoc
+INKEY(5)
+WCLOSE(n_win1)
+IF n_error<>0
+  DispError("При формуваннi;податкової накладної;знайдено "+STR(n_error,2)+" помилок ")
+ENDIF
+SET PRINTER OFF
+SET PRINTER TO
+DBCOMMITALL()
+SAVEPAR(1)
+RETURN .t.
+Function FormNal2()
+  LOCAL m_ndoc:=" ",m_vnum,m_rec2:=nakl2->(RECNO()),m_sum:=0,m_nds:=0,i,m_rec1:=Nakl1->(RECNO())
+  LOCAL m_gauge,n,m_count:=1,m_screen,m_ddoc1,m_ddoc2,GetList:={},m_color,n_win1,l3:=.f.
+  LOCAL s_kvo:=0,s_kvo1:=0,m_sum1:=0,m_nds1:=0,s_ndoc:="",s_ndoc1:="",;
+  m_sum0:=0,l1:=.f.,l2:=.f.,s_ndoc3:="",m_ndoc1:=" ",m_sum3:=0,m_nds3:=0
+  fvnum->(DBGOTO(2))
+  IF fvnum->(NetRlock())
+    fvnum->reg:=SETBIT(fvnum->reg,m_computer)
+    m_vnum:=fvnum->vnum
+    fvnum->vnum:=fvnum->vnum+2
+  ELSE
+    DispError("Вiдмовлено в доступi")
+    RETURN .f.
+  ENDIF
+  IF m_level>3
+    DispError("Ви не маєте повноважень на запуск цiєї программи;Звернiться до адмiнiстратора системи")
+    RETURN .f.
+  ENDIF
+  SAVEPAR()
+  m_SCREEN :=savescreen(9,15,16,74)
+  DispBox(9,15,14,70,B_SINGLE+" ","w+/bg")
+  Shadow(9,15,14,70)
+  @ 10,17 sayDisp 'Формувати податкову накладну по накладних' COLOR "n/Bg"
+  @ 11,17 sayDisp 'за готiвку       з           по                 '  COLOR "n/Bg"
+  m_ddoc1:=BOM(DATE()-10)
+  @ 11,36 get m_ddoc1 COLOR "gr+/N" VALID (SetDdoc2(@m_ddoc1,@m_ddoc2))
+  @ 11,50 get m_ddoc2 COLOR "gr+/N"  VALID m_ddoc2>=m_ddoc1
+  SET ESCAPE ON
+  read
+  restscreen(9,15,16,74,m_screen)
+  IF LASTKEY()==K_ESC
+      set escape off
+      set cursor off
+      RETURN .F.
+  ENDIF
+  m_color:=SETCOLOR("w/b")
+  SELECT Nalog1
+  Set FILTER TO nalog1->vdoc=="1"
+  nalog1->(DBSETORDER(2))
+  SELECT NAkl1
+  SET FILTER TO nakl1->vdoc=="1" // Витрата
+  Nakl1->(DBGOTOP())
+  n:=nakl1->(LASTREC())
+  m_gauge:=InitGauge("Виборка iз бази накладних",1)
+  IF FILE(m_workpath+"05.txt")
+    NET USE (m_workpath+"arh") NEW
+    IF arh->(NetDBAP())
+      arh->name:="Форм. под. накл. за готiвку "
+      arh->text:=MEMOREAD(m_workpath+"05.txt")
+    ENDIF
+    CLOSE arh
+  ENDIF
+  SETPRC(0,0)
+  SET PRINTER TO (m_workpath+"05.txt")
+  SET PRINTER ON
+  n_win1:=WOPEN(0,0,8,80,.t.)
+  Wselect(n_win1)
+  WBOX(12)
+  @-1,0 SayDisp PADC("Формування податкової накладної по накладних за готiвку ",80) COLOR "n/w"
+  SETPOS(0,0)
+  ?"Формування податкової накладної по накладних за готiвку"
+  ?" за перiод з " +My_Dtos(m_ddoc1)+" по  "  +My_Dtos(m_ddoc2)
+  Wselect(0)
+    m_sum1:=0;m_nds1:=0
+    m_sum:=0;m_nds:=0
+    DO WHILE .NOT.nakl1->(EOF())
+      IF nakl1->ddoc1>=m_ddoc1.AND.nakl1->ddoc1<=m_ddoc2.AND.;
+        nakl1->kod1=="1".AND..not.IsBit(ASC(nakl1->state),3).AND.;
+        IsBit(ASC(nakl1->state),1)
+        m_sum0+=nakl1->sum
+
+        IF EMPTY(nakl1->ndoc2)
+          l3:=.t.
+        ELSE
+          l3:=.t.
+          IF Nalog1->(DS(nakl1->ndoc2))
+            DO WHILE .NOT.Nalog1->(EOF()).AND.Nalog1->ndoc==nakl1->ndoc2.AND.Nalog1->ddoc<>nakl1->ddoc2
+              Nalog1->(dbskip())
+            ENDDO
+            IF Nalog1->ndoc==nakl1->ndoc2.AND.Nalog1->ddoc==nakl1->ddoc2
+              l3:=.f.
+              IF AT(Nalog1->ndoc+",",s_ndoc3)==0
+                s_ndoc3+=Nalog1->ndoc+","
+              ENDIF
+            ENDIF
+          ENDIF
+        ENDIF
+
+        IF l3
+          s_kvo1++
+          IF Nakl1->(NetRLock())
+            nakl2->(DBSEEK(nakl1->vnum))
+            s_kvo++
+            IF (NumPotr(nakl1->kopr)<>"1")
+              DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
+                  IF nalog2->(NetDbAp())
+                    nalog2->NumNakl:=nakl1->ndoc
+                    nalog2->ddoc := nakl1->ddoc1
+  //                  nalog2->ddoc := nakl1->ddoc
+                    nalog2->kod  := nakl2->kod
+                    Kaptka1->(DS(nakl2->kod))
+                    nalog2->name := kaptka1->name
+                    nalog2->izm  := Kaptka1->izm
+                    nalog2->kvo  := nakl2->kvo
+                    nalog2->prise:= nakl2->prise
+                    IF  nakl2->nds<>0
+                      nalog2->vnum := STR(m_vnum,6)
+                      l1:=.t.
+                      nalog2->sum1 :=nakl2->stm
+                      nalog2->nds  := nakl2->nds
+                      nalog2->stm  := nalog2->sum1 + nalog2->nds
+                      m_sum+=nakl2->stm;m_nds+=nakl2->nds
+                      l3:=.t.
+                    ELSE
+                      l2:=.t.
+                      l3:=.f.
+                      nalog2->vnum := STR(m_vnum+1,6)
+                      nalog2->sum4 :=nakl2->stm
+                      nalog2->stm  := nalog2->sum4
+                      m_sum1+=nakl2->stm;m_nds1+=nakl2->nds
+                    ENDIF
+                  ELSE
+                    DispError("Неможливо добавити строку в податкову накладну")
+                  ENDIF
+                  nalog2->(dbUnlock())
+                  nakl2->(Dbskip())
+              ENDDO
+              IF l3
+                IF EMPTY(m_ndoc)
+                  m_ndoc:=STR(fvnum->ndoc,LEN(nalog1->ndoc))
+                  fvnum->ndoc:=fvnum->ndoc+1
+                  s_ndoc+=ALLTRIM(m_ndoc)+","
+                ENDIF
+                nakl1->ndoc2:=m_ndoc
+              ELSE
+                IF EMPTY(m_ndoc1)
+                  m_ndoc1:=STR(fvnum->ndoc,LEN(nalog1->ndoc))
+                  fvnum->ndoc:=fvnum->ndoc+1
+                  s_ndoc+=ALLTRIM(m_ndoc1)+","
+                ENDIF
+                nakl1->ndoc2:=m_ndoc1
+              ENDIF
+            ELSE
+              IF Nakl2->(FOUND())
+                  m_sum3:=0;m_nds3:=0
+                  DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
+                    IF nalog2->(NetDbAp())
+                      nalog2->vnum := STR(fvnum->vnum,6)
+                      nalog2->NumNakl:=nakl1->ndoc
+                      nalog2->ddoc := nakl1->ddoc1
+                      nalog2->kod  := nakl2->kod
+                      Kaptka1->(DS(nakl2->kod))
+                      nalog2->name := kaptka1->name
+                      nalog2->izm  := Kaptka1->izm
+                      nalog2->kvo  := nakl2->kvo
+                      nalog2->prise:= nakl2->prise
+                      IF  nakl2->nds<>0
+                        nalog2->sum1 :=nakl2->stm
+                        nalog2->nds  := nakl2->nds
+                        nalog2->stm  := nalog2->sum1 + nalog2->nds
+                        m_sum+=nakl2->stm;m_nds+=nakl2->nds
+                      ELSE
+                        nalog2->sum4 :=nakl2->stm
+                        nalog2->stm  := nalog2->sum4
+                        m_sum1+=nakl2->stm;m_nds1+=nakl2->nds
+                      ENDIF
+                    ELSE
+                      DispError("Неможливо добавити строку в податкову накладну")
+                    ENDIF
+                    nalog2->(dbUnlock())
+                    m_sum3+=nakl2->stm;m_nds3+=nakl2->nds
+                    nakl2->(Dbskip())
+                  ENDDO
+                  IF nalog1->(NetDbAp())
+                    nalog1->vnum:=STR(fvnum->vnum,6)
+                    fvnum->vnum:=fvnum->vnum+1
+                    nalog1->ndoc:=STR(fvnum->ndoc,LEN(nalog1->ndoc))
+                    fvnum->ndoc:=fvnum->ndoc+1
+                    nalog1->ddoc:=DATE()
+                    SetPred01()
+                    Nalog1->vdoc:="1"
+                    Firm01->(DBSETORDER(2))
+                    Firm01->(DS(nakl1->okpo))
+                    Firm01->(DBSETORDER(1))
+                    SetFirm01()
+                    nalog1->nds:=m_nds
+                    nalog1->sum:=m_sum
+                    nalog1->(dbUnlock())
+                    s_ndoc+=ALLTRIM(nalog1->ndoc)+","
+                  ELSE
+                    DispError("Неможливо добавити заголовок в податкову накладну")
+                  ENDIF
+                  nakl1->ndoc2:=nalog1->ndoc
+              ENDIF
+            ENDIF
+            nakl1->ddoc2:=Date()
+            s_ndoc1+=ALLTRIM(nakl1->ndoc)+","
+            nakl1->(DbUnlock())
+          ENDIF
+        ENDIF
+      ENDIF
+      m_gauge:=DispGauge(m_gauge,m_count++/n)
+      nakl1->(DBSKIP())
+    ENDDO
+  SELECT Nalog1
+  Set FILTER TO
+  IF l1
+  IF nalog1->(NetDbAp())
+    nalog1->vnum:=STR(m_vnum,6)
+    nalog1->ndoc:=m_ndoc
+    nalog1->ddoc:=DATE()
+    SetPred01()
+    Nalog1->vdoc:="1"
+    nalog1->nds:=m_nds
+    nalog1->sum:=m_sum
+    nalog1->(dbUnlock())
+  ELSE
+        DispError("Неможливо добавити заголовок в податкову накладну")
+  ENDIF
+  ENDIF
+  IF l2
+    IF nalog1->(NetDbAp())
+      nalog1->vnum:=STR(m_vnum+1,6)
+      nalog1->ndoc:=m_ndoc1
+      nalog1->ddoc:=DATE()
+      SetPred01()
+      Nalog1->vdoc:="1"
+      nalog1->nds:=m_nds1
+      nalog1->sum:=m_sum1
+      nalog1->(dbUnlock())
+    ELSE
+          DispError("Неможливо добавити заголовок в податкову накладну")
+    ENDIF
+  ENDIF
+
+
+
+  IF fvnum->(NetRlock())
+    fvnum->reg:=CLEARBIT(fvnum->reg,m_computer)
+    fvnum->(DBCOMMIT())
+    fvnum->(DbUnlock())
+  ELSE
+    DispError("Вiдмовлено в доступi")
+  ENDIF
+WSELECT(n_win1)
+?"   ------------ Cума накладних ------------------------"
+?"   Реалiзацiя (кредит 46 рахунку)-Дебет 50 "+SumToStr(m_sum0)
+IF .NOT.EMPTY(s_ndoc3)
+  ?"Увага !!! Вже сформованi податковi накладнi N"+LEFT(s_ndoc3,LEN(s_ndoc3)-1)
+ENDIF
+
+?"   ------------ Cума податкової------------------------"
+?"   Реалiзацiя (кредит 46 рахунку)-Дебет 50 "+SumToStr(m_sum+m_nds+m_sum1+m_nds1)
+?"             ПДВ                           "+SumToStr(m_nds+m_nds1)
+?"   Кiлькiсть накладних занесених в податкову "+LTRIM(str(s_kvo))
+?""
+?"Загальна кiлькiсть накладних "+LTRIM(str(s_kvo1))
+s_ndoc1:=LEFT(s_ndoc1,LEN(s_ndoc1)-1)
+DO WHILE .NOT.EMPTY(s_ndoc1)
+  i:=IF(LEN(s_ndoc1)>60,RAT(",",LEFT(s_ndoc1,60)),LEN(s_ndoc1))
+  IF i==0
+    i:=60
+  ENDIF
+  ?LEFT(s_ndoc1,i)
+  s_ndoc1:=SUBSTR(s_ndoc1,i+1)
+ENDDO
+?" Занесення данних зроблено "+my_dtos(DATE())
+?"                  виконав "+ALLTRIM(_Fio(m_tabn))
+?" Податкова накладна N "+LEFT(s_ndoc,LEN(s_ndoc)-1)
+INKEY(5)
+SET PRINTER OFF
+SET PRINTER TO
+DBCOMMITALL()
+SAVEPAR(1)
+RETURN .t.
+Function Revizor01()
+  LOCAL  m_mol:="  ",m_ddoc1:=DATE(),m_ddoc2:=DATE()
+  LOCAL m_file1,s_kvo1:=0,s_kvo2:=0,s_ndoc1:="",s_ndoc2:=""
+  LOCAL m_log,n,n_count:=0,n_win1,m_gauge
+  // Ввiд матер. особи i дати
+    IF .not.Get001(@m_mol,@m_ddoc1,@m_ddoc2)
+      RETURN .f.
+    ENDIF
+  //Вибiрка даних
+  SELECT NAkl1
+  SET FILTER TO
+  Nakl1->(DBGOTOP())
+  MyCreate("NAKL39","buf1")
+  MyCreate("NAKL40","buf2")
+  SELECT buf1
+  INDEX ON buf1->kod TO (m_temppath+"buf1")
+  n:=nakl1->(LASTREC())
+  IF FILE(m_workpath+"40.txt")
+    NET USE (m_workpath+"arh") NEW
+    IF arh->(NetDBAP())
+      arh->name:="Перевiрка звiту комiрника"
+      arh->text:=MEMOREAD(m_workpath+"40.txt")
+    ENDIF
+    CLOSE arh
+  ENDIF
+USE (m_workpath+"spr03.dbf") NEW ALIAS file3
+m_gauge:=InitGauge("Вибiрка сальдо",2)
+DO WHILE .NOT.File3->(EOF())
+  IF m_mol==file3->mol.AND.mnt_dtod(m_ddoc1)==file3->mnt
+    IF .NOT.buf1->(DS(file3->kod))
+      buf1->(DBAP())
+      buf1->kod  :=file3->kod
+      buf1->ozn  :=file3->ozn
+    ENDIF
+    IF buf1->ozn<>file3->ozn
+      Disperror("Помилка в залишках !!!; код виробництва рiзний "+file3->kod)
+    ENDIF
+      buf1->inkvo+=file3->kvo
+      buf1->inglv+=file3->glv
+      buf1->insum+=file3->stm
+  ENDIF
+  File3->(DBSKIP())
+  m_gauge:=DispGauge(m_gauge,File3->(RECNO())/File3->(LASTREC()))
+ENDDO
+DelGauge(m_gauge)
+// CLOSE file3
+  SETPRC(0,0)
+  SET PRINTER TO (m_workpath+"40.txt")
+  SET PRINTER ON
+m_gauge:=InitGauge("Вибiрка iз накладних",2)
+n_win1:=WOPEN(0,0,8,80,.t.)
+Wselect(n_win1)
+WBOX(12)
+@-1,0 SayDisp PADC("Перевiрка звiту комiрника ("+m_mol+")"+RTRIM(_mol(m_mol)),80) COLOR "n/w"
+SETPOS(0,0)
+?"Перевiрка звiту комiрника ("+m_mol+")"+RTRIM(_mol(m_mol))
+?" за перiод з " +My_Dtos(m_ddoc1)+" по  "  +My_Dtos(m_ddoc2)
+Wselect(0)
+  DO WHILE .NOT.nakl1->(EOF())
+    IF nakl1->ddoc3>=m_ddoc1.AND.nakl1->ddoc3<=m_ddoc2.AND..not.IsBit(ASC(nakl1->state),3)
+      IF ((nakl1->vdoc=="0".AND.nakl1->otp==m_mol).OR.(nakl1->vdoc<>"0".AND.(nakl1->otp==m_mol.or.nakl1->mol==m_mol)))
+        IF (nakl1->vdoc=="0".AND.nakl1->otp==m_mol).OR.(nakl1->vdoc<>"0".AND.nakl1->mol==m_mol)
+          m_log:="0" // ПРИХIД
+          s_ndoc1+=nakl1->ndoc;s_kvo1++
+        ELSE
+          m_log:="1" // ВИТРАТА
+          s_ndoc2+=nakl1->ndoc;s_kvo2++
+        ENDIF
+        nakl2->(DS(nakl1->vnum))
+        Spr01->(DS(nakl1->kopr))
+        DO WHILE .NOT.nakl2->(EOF()).AND.nakl1->vnum==nakl2->vnum
+          Kaptka1->(DS(nakl2->kod))
+          buf2->(DBAP())
+          buf2->ndoc :=nakl1->ndoc
+          buf2->ddoc :=nakl1->ddoc
+          buf2->kopr :=nakl1->kopr
+          buf2->potr :=Spr01->potr
+          buf2->kod1 :=nakl1->kod1
+          buf2->brgd :=nakl1->brgd
+          buf2->brgd1:=nakl1->brgd1
+          buf2->mol  :=nakl1->mol
+          buf2->ksash:=nakl1->ksash
+          buf2->gnavt:=nakl1->gnavt
+          buf2->ntr  :=nakl1->ntr
+          buf2->kod  :=nakl2->kod
+          buf2->dbt  :=Kaptka1->ksash
+          buf2->crt  :=Kaptka1->ksash2
+          buf2->koef :=Kaptka1->koef
+          buf2->glv  :=nakl2->glv
+          buf2->nds  :=nakl2->nds
+          buf2->stm  :=nakl2->stm
+          buf2->stm1 :=nakl2->stm1
+          IF  .NOT.buf1->(DS(nakl2->kod))
+            buf1->(DBAP())
+            buf1->kod  :=Nakl2->kod
+            IF m_log=="0".and.Spr01->potr=="2"  // обработать ситуацию от другого мол
+                buf1->ozn  :="1"
+            ENDIF
+          ENDIF
+          IF m_log=="0"
+            buf1->dkvo+=nakl2->kvo
+            buf1->dsum+=nakl2->stm
+          ELSE
+            buf1->ckvo+=nakl2->kvo
+            buf1->csum+=nakl2->stm
+            IF LEFT(kaptka1->ksash,2)=="12".AND.;
+              (Spr01->potr=="2".or.Spr01->potr=="6".or.Spr01->potr=="7");
+              .AND.kaptka1->month==0.and.kaptka1->km==0
+              WSELECT(n_win1)
+              ?" Не визначен термiн експлуатацiї по коду ("+buf1->kod+") "+kaptka1->name
+              WSELECT(0)
+            ENDIF
+          ENDIF
+          nakl2->(DBSKIP())
+        ENDDO
+      ENDIF
+    ENDIF
+    m_gauge:=DispGauge(m_gauge,n_count++/n)
+    nakl1->(DBSKIP())
+  ENDDO
+  m_gauge:=DispGauge(m_gauge,1)
+  buf2->(DBGOTOP())
+  buf1->(DBGOTOP())
+  wselect(n_win1)
+  DO WHILE .NOT.buf1->(EOF())
+    kaptka1->(DS(buf1->kod))
+    IF buf1->insum<>0
+      IF buf1->inkvo<>0
+        buf1->prise1:=buf1->insum/buf1->inkvo
+      ELSE
+        ?"Помилка !!! не визначена кiлькiсть залишкiв по коду "+buf1->kod+") "+kaptka1->name
+      ENDIF
+    ENDIF
+    IF buf1->Dsum<>0
+      IF buf1->Dkvo<>0
+        buf1->prise2:=buf1->Dsum/buf1->Dkvo
+      ELSE
+        ?"Помилка !!! не визначена кiлькiсть приходу по коду "+buf1->kod+") "+kaptka1->name
+      ENDIF
+    ENDIF
+    IF buf1->prise1<>0.and.buf1->prise2<>0
+      IF ABS(buf1->prise1-buf1->prise2)/ABS(buf1->prise2)>0.15
+        ?"Значне вiдхилення цiни по коду "+buf1->kod+") "+kaptka1->name
+      ENDIF
+      IF buf1->prise1<>buf1->prise2
+        buf1->prise3:=(buf1->insum+buf1->Dsum)/(buf1->Dkvo+buf1->inkvo)
+        ?"По коду ("+ALLTRIM(buf1->kod)+") "+ALLTRIM(kaptka1->name)+" буде перераховано середню цiну"
+        ?"   Попередня цiна =",buf1->prise1," одержано по ",buf1->prise2
+        ??" нова цiна ",buf1->prise3
+      ENDIF
+    ENDIF
+    IF buf1->inkvo+buf1->dkvo<buf1->ckvo
+      ?"Помилка !!! Витрата без приходу по коду "+buf1->kod+") "+kaptka1->name
+    ENDIF
+    buf1->( DBSKIP())
+  ENDDO
+  WSELECT(0)
+  WCLOSE(n_win1)
+  set print off
+  SET PRINTER TO
+  CLOSE BASE buf1,buf2,file3
+RETURN .t.
+
