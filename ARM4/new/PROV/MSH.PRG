@@ -676,7 +676,7 @@ Function RMs63()
   m_mnt1:=SPACE(4),m_mnt2:=SPACE(4),m_gauge,a_total:={},a_scht:={}
 
   LOCAL m_num_mash:="63",a_files:={},l_exit:=.f.
-LOCAL   m_kopr2,s_kormday
+  LOCAL   m_kopr2,s_kormday,m_schtkvo2
 
 LOCAL   b_cond1db:={||IF((fp1->maket<> "51") .AND. AT(fp2->kopr,s_kormday)<>0,.F.,.t.)}
 LOCAL   b_cond1cr:={||IF((fp1->maket <> "51".OR.fp2->kopr==m_kopr2) .AND. AT(fp2->kopr,s_kormday)<>0,.F.,.t.)}
@@ -690,8 +690,10 @@ ENDIF
   // необходимо определить , что не должно суммироваться в количество
   USE (m_uchpath+"\inst1") INDEX  (m_uchpath+"\inst1") new ALIAS myvar
   RESTMEM m_kopr2  // операция ГСМ
+
   RESTMEM s_kormday // кормодни и т.д.
   RESTMEM m_schtgsm  // счет ГСМ - литры сумируются в головы
+  RESTMEM m_schtkvo2 // count with kvo 2
   CLOSE myvar
   s_kormday:=ALLTRIM(s_kormday)
   m_kopr2:=ALLTRIM(m_kopr2)
@@ -735,13 +737,18 @@ ENDIF
              buf->kplh:=fp2->kplh
              buf->kopr:=fp2->kopr
              buf->dbkvo:=fp2->kvo
+             //buf->dbkvo2:=fp2->kvo2
              buf->dbstm:=fp2->stm
              buf->dbglv:=fp2->glv
-            IF LEFT(buf->dbt,LEN(m_schtgsm))==m_schtgsm
+        IF LEFT(buf->dbt,LEN(m_schtgsm))==m_schtgsm
               buf->dbglv:=fp2->kvo2
               IF fp2->kvo2<>0;l_glv:="1";ENDIF
-            ENDIF
-             IF .not.EMPTY(buf->cod2)
+         ENDIF
+        IF LEFT(buf->dbt,LEN(m_schtkvo2))==m_schtkvo2
+              buf->dbglv:=fp2->kvo2
+              IF fp2->kvo2<>0;l_glv:="1";ENDIF
+         ENDIF
+            IF .not.EMPTY(buf->cod2)
               buf->name:=buf->kopr+" "+buf->crt+" "+buf->cod2
             ELSE
               Sp44->(DS(buf->crt))
@@ -801,9 +808,14 @@ ENDIF
              buf->kplh:=fp2->otp
              buf->kopr:=fp2->kopr
              buf->crkvo:=fp2->kvo
+             //buf->crkvo2:=fp2->kvo2
              buf->crstm:=fp2->stm
              buf->crglv:=fp2->glv
             IF LEFT(buf->dbt,LEN(m_schtgsm))==m_schtgsm
+              buf->crglv:=fp2->kvo2
+              IF fp2->kvo2<>0;l_glv:="1";ENDIF
+            ENDIF
+            IF LEFT(buf->dbt,LEN(m_schtkvo2))==m_schtkvo2
               buf->crglv:=fp2->kvo2
               IF fp2->kvo2<>0;l_glv:="1";ENDIF
             ENDIF
