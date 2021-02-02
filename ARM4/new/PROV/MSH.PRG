@@ -7,6 +7,7 @@ MEMVAR m_temppath,m_platpath,m_oper,m_syspath,m_computer,m_exepath,m_copypath,m_
 #define SCHT_KORMA "10"
 #define SCHT_ZRPL "661"
 STATIC m_schtgsm:=""
+STATIC m_schtkvo2:=""
 STATIC m_koprgsm:=""
 
 Function SetParMsh(var)
@@ -325,9 +326,9 @@ STATIC Function GetMntMash(m_mnt1,m_mnt2,m_scht,m_kod,l_1)
   SET ESCAPE ON
   SET CURSOR ON
   @2,7 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
-  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2025".and.m_year1>="1999")
   @3,7 get m_month2 PICTURE "99" COLOR "gr+/b*,gr+/n" VALID (m_month2<"13".and.m_month2>"00")
-  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2025".and.m_year1>="1999")
   @15,10 get m_scht PICTURE "@s46" COLOR "gr+/b*,gr+/n" WHEN l_edit
   @16,27 get m_kod PICTURE "9" COLOR "gr+/b*,gr+/n" VALID (m_kod==" " .or.m_kod=="1" .or.m_kod=="2")
   READ
@@ -676,7 +677,7 @@ Function RMs63()
   m_mnt1:=SPACE(4),m_mnt2:=SPACE(4),m_gauge,a_total:={},a_scht:={}
 
   LOCAL m_num_mash:="63",a_files:={},l_exit:=.f.
-  LOCAL   m_kopr2,s_kormday,m_schtkvo2
+  LOCAL   m_kopr2,s_kormday
 
 LOCAL   b_cond1db:={||IF((fp1->maket<> "51") .AND. AT(fp2->kopr,s_kormday)<>0,.F.,.t.)}
 LOCAL   b_cond1cr:={||IF((fp1->maket <> "51".OR.fp2->kopr==m_kopr2) .AND. AT(fp2->kopr,s_kormday)<>0,.F.,.t.)}
@@ -915,9 +916,18 @@ STATIC Function m63dbap(m_dbt,m_cod1,m_kplh,m_level,m_mnt1,m_mnt2,b_name,b_kvo)
         buf->docCount:=1 // Признак наличия первичного документа в оборотах
 
         buf->dbstm+=fp2->stm
-        buf->dbglv+=fp2->glv
+//        buf->dbglv+=fp2->glv
+//        IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
+//          buf->dbglv+=fp2->kvo2
+//        ENDIF
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->dbglv+=fp2->kvo2
+        ELSE
+          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+            buf->dbglv+=fp2->kvo2
+          ELSE
+            buf->dbglv+=fp2->glv
+          ENDIF
         ENDIF
       ELSE
         // ВХОДЯЩЕЕ САЛЬДО
@@ -949,10 +959,16 @@ STATIC Function m63crap(m_dbt,m_cod1,m_kplh,m_level,m_mnt1,m_mnt2,b_name,b_kvo)
           buf->crkvo+=fp2->kvo
         ENDIF
         buf->crstm+=fp2->stm
-        buf->crglv+=fp2->glv
+//        buf->crglv+=fp2->glv
         buf->docCount:=1 // Признак наличия первичного документа в оборотах
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->crglv+=fp2->kvo2
+        ELSE
+          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+            buf->crglv+=fp2->kvo2
+          ELSE
+            buf->crglv+=fp2->glv
+          ENDIF
         ENDIF
       ELSE
         // ВХОДЯЩЕЕ САЛЬДО
@@ -960,9 +976,15 @@ STATIC Function m63crap(m_dbt,m_cod1,m_kplh,m_level,m_mnt1,m_mnt2,b_name,b_kvo)
           buf->inkvo-=fp2->kvo
         ENDIF
         buf->instm-=fp2->stm
-        buf->inglv-=fp2->glv
+//        buf->inglv-=fp2->glv
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->inglv-=fp2->kvo2
+        ELSE
+          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+            buf->inglv-=fp2->kvo2
+          ELSE
+            buf->inglv-=fp2->glv
+          ENDIF
         ENDIF
       ENDIF
 RETURN .T.
@@ -1149,10 +1171,15 @@ STATIC Function m64dbap(m_dbt,m_cod1,m_kopr,m_level,m_crt,m_cod2,b_name,b_kvo,s_
       ENDIF
 
         buf->dbstm+=fp2->stm
-        buf->dbglv+=fp2->glv
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->dbglv+=fp2->kvo2
-      ENDIF
+        ELSE
+//          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+//            buf->dbglv+=fp2->kvo2
+//          ELSE
+            buf->dbglv+=fp2->glv
+//          ENDIF
+        ENDIF
       IF .NOT.EMPTY(s_itog)
         buf->itog:=s_itog
       ENDIF
