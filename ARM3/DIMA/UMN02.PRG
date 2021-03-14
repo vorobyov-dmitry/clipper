@@ -1989,7 +1989,7 @@ buf->(DBSKIP())
         @PROW()+2,0 SAY "РАЗОМ ПО ВIДОМОСТI"
         @PROW(),54 SAY SumToStr(m_sum2,12,,",")
         @PROW()+1,0 SAY NumToChar(INT(m_sum2))+'  грв.  ' + STRZERO( (m_sum2 - INT(m_sum2))*100,2) + ' коп.'
-        @prow()+1,0   SAY  'Контролер______________________          Керiвник      ___________________'
+        @prow()+1,0   SAY  '                                         Керiвник      ___________________'
         @PROW()+1,0   SAY  '                                         Гол. бухгалтер___________________'
 //        StrToPrn(IF(GetParPrn(N_PAPER)==1,END_LINE+END_LINE+END_LINE,CHR(K_CTRL_L)+END_LINE))
         StrToPrn(END_LINE+"$"+END_LINE)
@@ -2005,7 +2005,7 @@ buf->(DBSKIP())
         @ 11, 10 +9   SAY  NumToStr( INT(m_sum2) ) + '  грв.  ' + STRZERO( (m_sum2 - INT(m_sum2))*100,2) + ' коп.'
         @ 15, 10      SAY      'Керiвник           ________________ '
         @ 17, 10      SAY      'Головний бухгалтер ________________'
-        @ 19, 10      SAY      'Кер. вiддiлу кадрiв ________________'
+        @ 19, 10      SAY      '                                    '
         @  25, 10 + 25-18 SAY      'ПЛАТIЖHA  BIДOMICTЬ на видачу готiвки N '+m_kass
         @  27, 10+26   SAY  "За "+NTOCMONTH(VAL(m_month))+" мiсяць "
         @  32, 10      SAY      'По даннiй платiжнiй вiдомостi'

@@ -326,9 +326,9 @@ STATIC Function GetMntMash(m_mnt1,m_mnt2,m_scht,m_kod,l_1)
   SET ESCAPE ON
   SET CURSOR ON
   @2,7 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
-  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2025".and.m_year1>="1999")
+  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @3,7 get m_month2 PICTURE "99" COLOR "gr+/b*,gr+/n" VALID (m_month2<"13".and.m_month2>"00")
-  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2025".and.m_year1>="1999")
+  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @15,10 get m_scht PICTURE "@s46" COLOR "gr+/b*,gr+/n" WHEN l_edit
   @16,27 get m_kod PICTURE "9" COLOR "gr+/b*,gr+/n" VALID (m_kod==" " .or.m_kod=="1" .or.m_kod=="2")
   READ
@@ -3250,9 +3250,9 @@ STATIC Function GetMntSvr(m_mnt1,m_mnt2,m_scht,m_cod,m_kod)
   m_scht:=SPACE(7)
   m_cod:=SPACE(10)
   @2,7 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
-  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @3,7 get m_month2 PICTURE "99" COLOR "gr+/b*,gr+/n" VALID (m_month2<"13".and.m_month2>"00")
-  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @15,9 get m_scht PICTURE "XXXXXXX" COLOR "gr+/b*,gr+/n" VALID Sp44->(Sp_vl("SP44",,15,20,"Sp44->naim7","Gr+/b"))
   @16,9 get m_cod  COLOR "gr+/b*,gr+/n" VALID (EMPTY(m_cod).OR.AnCodValid(m_scht,m_cod,16,20,,34)) WHEN PreAnCod(m_scht)
   GetList[LEN(GetList)]:Block:={|x|IF(x==NIL,AnalCod(x,m_scht,m_cod),m_cod:=PADR(x,10))}

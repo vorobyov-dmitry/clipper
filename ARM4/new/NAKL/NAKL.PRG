@@ -90,7 +90,7 @@ Function Nakl(l_mode)
   a_get[11]:PostBlock:={||sp44(@a_data,@a_get,@n_pole)}
   a_get[12]:PostBlock:={||Inv_a(@a_data,@a_get,@n_pole)}
   a_get[13]:PostBlock:={||Inv_t(@a_data,@a_get,@n_pole)}
-  a_get[14]:PostBlock:={||Sp17(@a_data,@a_get,@n_pole,m_pension)}
+	  a_get[14]:PostBlock:={||Sp17(@a_data,@a_get,@n_pole,m_pension)}
   a_say[6]:={2,51,"","GR+/B",{||SayOpl(a_data[6])}}
   a_say[16]:={{ASC("?"),{||Sp10Dop(@a_data,@a_get,@n_pole)}}}
 
@@ -116,7 +116,10 @@ Function Nakl(l_mode)
   a_get1[7]:PreBlock:={||IF(NumPotr(a_data[3])=="5".OR.NumPotr(a_data[3])=="9",.f.,.t.)}
   a_get1[10]:PreBlock:={||IF(NumPotr(a_data[3])=="5".OR.NumPotr(a_data[3])=="9",.f.,.t.)}
   m_browse1               := TBrowseDB(10,1,MAXROW()-3,MAXCOL()-1)
-  m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b'
+//                            1   2   3      4    5    6    7      8     10
+  m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b,GR+/N+,N+/GR,W/N'
+  m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b,GR+/B,GR+/W,BG/N+'
+  
   m_browse1:colsep        := '│'
   m_browse1:SkipBlock     := {|n| SkipDb1(n,{||(nakl1->vnum==nakl2->vnum)},lApnd) }
   m_browse1:goBottomBlock := {||nakl2->(DBSEEK(nakl1->vnum,.f.)),nakl2->(DBEVAL(,,{||(nakl1->vnum==nakl2->vnum)})),nakl2->(dbskip(-1))}
@@ -127,6 +130,10 @@ Function Nakl(l_mode)
   a_get1[10]:Block:={|x|IF(x==NIL,nakl2->stm+nakl2->nds,SetStm(x))}
   Select nakl1 ; Wselect(n_win)
   m_browse:GetColumn(3):block:={||Status1()}
+
+  m_browse1:GetColumn(11):colorblock:=  {|| IF(field->KNDS==' ',{1,2},{7,8})}
+  m_browse1:GetColumn(1):colorblock:=  {|| IF(field->KNDS==' ',{1,2},{7,8})}
+
   ADD menu up_down
   add menu Left_Right
   add menu search
@@ -291,7 +298,23 @@ Function Nakl(l_mode)
               ENDIF
             ENDIF
             DO WHILE .t.
-              Display Browse m_browse1
+              
+//                            1   2   3      4    5    6    7      8     10
+//  m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b,RB+/N+,N+/RB+,BG/N+'
+              m_browse1:refReshCurrent()
+              IF nakl2->KNDS!=' ' 
+                 m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{7,8})
+               ELSE
+               	m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{1,1})
+               ENDIF
+        	   STABILIZE BROWSE m_browse1
+              IF nakl2->KNDS!=' ' 
+        		  m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{10,7})
+                  m_browse1:ColorRect({m_browse1:RowPos,m_browse1:ColPos,m_browse1:RowPos,m_browse1:ColPos},{8,7})
+               ELSE
+        		 m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{6,1})
+                 m_browse1:ColorRect({m_browse1:RowPos,m_browse1:ColPos,m_browse1:RowPos,m_browse1:ColPos},{2,2})
+              ENDIF
               Winsay
               m_key:=IF(.NOT.lApnd,INKEY(0),K_INS)
                 DO CASE
@@ -318,6 +341,7 @@ Function Nakl(l_mode)
                           IF(a_say1[m_browse1:ColPos]#NIL.AND.VALTYPE(a_say1[m_browse1:ColPos][1])=="A",a_say1[m_browse1:ColPos],NIL))
                           IF .NOT.EMPTY(a_dop)
                             nakl2->prise:=SetPrise(a_data[3],a_dop)
+                            nakl2->KNDS:= a_dop[8]
                             TaxStm(a_data[3])
                             a_dop:={}
                           ENDIF
@@ -348,6 +372,7 @@ Function Nakl(l_mode)
                 ENDCASE
             ENDDO
             m_browse1:RefreshCurrent()
+            m_browse1:goTop()
             Stabilize Browse m_browse1
             m_browse1:autolite:=.f.
             m_browse1:DeHilite()
@@ -498,7 +523,7 @@ LOCAL m_kod
 IF x<>NIL
    m_kod:=x:buffer
 IF kaptka1->(DBSEEK(x:buffer))
-    a_dop:={kaptka1->kod,kaptka1->name,kaptka1->izm,kaptka1->izm2,kaptka1->prise,kaptka1->prise1,kaptka1->prise2}
+    a_dop:={kaptka1->kod,kaptka1->name,kaptka1->izm,kaptka1->izm2,kaptka1->prise,kaptka1->prise1,kaptka1->prise2,kaptka1->KNDS}
 ELSE
   a_dop:={}
   KEYBOARD "?"
@@ -1664,7 +1689,7 @@ STATIC FUNCTION Nakl3(m_mode,var2)
   ENDIF
   CrBrCol(var2,@m_browse1,"NAKL3")
   FOR i:=1 TO m_browse1:ColCount
-    m_browse1:GetColumn(i):ColorBlock:={||IF(nakl3->stm==ROUND(nakl2->prise*nakl3->kvo*(1+getNds()),2),{1,2},{7,8})}
+    m_browse1:GetColumn(i):ColorBlock:={||IF(nakl3->stm==ROUND(nakl2->prise*nakl3->kvo*(1+getVat()),2),{1,2},{7,8})}
   NEXT
 
   i:=1;AEVAL(a_get1,{|x|a_get1[i]:block:=m_browse1:GetColumn(i):Block,;
@@ -1736,10 +1761,10 @@ STATIC FUNCTION Nakl3(m_mode,var2)
 //          IF ANSWERu("Заносити загальну кiлькiсть i суму в накладну")==YES
               IF nakl2->(NetRLOCK())
                 nakl2->kvo:=m_kvo;nakl2->glv:=m_glv
-                IF GetNds()==0
+                IF GetVat()==0
                   nakl2->stm:=m_sum
                 ELSE
-                  nakl2->nds:=m_sum*GetNds()/(1+GetNDS())
+                  nakl2->nds:=m_sum*GetNds()/(1+GetVat())
                   nakl2->stm:=m_sum-nakl2->nds
                   nakl2->prise:=IF(nakl2->kvo==0,0,nakl2->stm/nakl2->kvo)
                 ENDIF
@@ -2009,16 +2034,17 @@ RESTSCREEN(ROW1,COL1,ROW1+ 12,COL1+ 64,m_screen)
     EVAL(m_browse:GoTopBlock);m_browse:rowPos:=1;m_browse:configure()
   ENDIF
 RETURN .t.
+// calculate VAT
 Function TaxStm(x)
 IF (lApnd.OR.ANSWERu("Перераховувати суму i ПДВ накладної")==YES).AND.;
   (NumPotr(x)<>"5".AND.NumPotr(x)<>"9") // не список к накладной
   field->stm:=field->prise*field->kvo
-  field->nds:=GetNds()*field->stm
+  field->nds:=GetVat()*field->stm
 ENDIF
 RETURN .t.
 Function TaxStm3(m_mode)
 IF m_mode.OR.ANSWERu("Перераховувати суму i ПДВ списка")==YES
-  nakl3->stm:=nakl2->prise*nakl3->kvo* (1 + GetNds())
+  nakl3->stm:=nakl2->prise*nakl3->kvo* (1 + GetVat())
 //  nakl3->nds:=GetNds()*nakl3->stm
 ENDIF
 RETURN .t.
@@ -2062,7 +2088,9 @@ IF nakl2->(NetRlock())
 ENDIF
 RETURN .t.
 STATIC FUNCTION SetStm(x)
-LOCAL i:=GetNds()
+//LOCAL i:=GetNds()
+LOCAL i:=GetVat()
+
 x:=ROUND(x,2)
 IF i==0
   nakl2->stm:=x;nakl2->nds:=0;nakl2->prise:=IF(nakl2->kvo==0,0,nakl2->stm/nakl2->kvo)
@@ -2073,6 +2101,12 @@ ELSE
   nakl2->prise:=IF(nakl2->kvo==0,0,nakl2->stm/nakl2->kvo)
 endif
 RETURN x
+STATIC FUNCTION getVat()
+IF field->KNDS == ' ' 
+	RETURN GetNds()
+ENDIF
+RETURN  GetNds1()
+
 
 /* STATIC FUNCTION SetStm2(x)
 LOCAL i:=GetNds()
@@ -2728,6 +2762,7 @@ FUNCTION ReadStroka(m_browse1,a_get1,a_say1,a_data,l_vvod,a_dop)
         IF nakl2->(NetDbAp())
           IF .NOT.EMPTY(a_dop)
             nakl2->prise:=SetPrise(a_data[3],a_dop)
+            nakl2->KNDS:= a_dop[8]
             a_dop:={}
           ENDIF
           nakl2->vnum:=nakl1->vnum
@@ -3090,6 +3125,7 @@ Function LZK5(var,l_mode)
                           IF(a_say1[m_browse1:ColPos]#NIL.AND.VALTYPE(a_say1[m_browse1:ColPos][1])=="A",a_say1[m_browse1:ColPos],NIL))
                           IF .NOT.EMPTY(a_dop)
                             nakl2->prise:=SetPrise(a_data[3],a_dop)
+                            nakl2->KNDS:= a_dop[8]
                             TaxStm(a_data[3])
                             a_dop:={}
                           ENDIF
