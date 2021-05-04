@@ -328,12 +328,12 @@ CLOSE myvar
   FILECOPY("E04T09C.dbf",s_month+"\E04T09C.dbf")
 
 
-  USE (s_month+"E04T05C") NEW ALIAS tabl5;zap
-  USE (s_month+"E04T06C") NEW ALIAS tabl6;zap
-  INDEX ON field->NUMIDENT+STRZERO(field->PAY_TP,2)  TO  (s_month+"tabl6")
-  USE (s_month+"E04T07C") NEW ALIAS tabl7;zap
-  USE (s_month+"E04T08C") NEW ALIAS tabl8;zap
-  USE (s_month+"E04T09C") NEW ALIAS tabl9;zap
+  USE (s_month+"\E04T05C") NEW ALIAS tabl5;zap
+  USE (s_month+"\E04T06C") NEW ALIAS tabl6;zap
+  INDEX ON field->NUMIDENT+STRZERO(field->PAY_TP,2)  TO  (s_month+"\tabl6")
+  USE (s_month+"\E04T07C") NEW ALIAS tabl7;zap
+  USE (s_month+"\E04T08C") NEW ALIAS tabl8;zap
+  USE (s_month+"\E04T09C") NEW ALIAS tabl9;zap
 
 
   m_gauge1:=initGauge("Вибiрка з особистих рахункiв ")
