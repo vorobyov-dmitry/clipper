@@ -119,7 +119,7 @@ Function Nakl(l_mode)
 //                            1   2   3      4    5    6    7      8     10
   m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b,GR+/N+,N+/GR,W/N'
   m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b,GR+/B,GR+/W,BG/N+'
-  
+
   m_browse1:colsep        := '³'
   m_browse1:SkipBlock     := {|n| SkipDb1(n,{||(nakl1->vnum==nakl2->vnum)},lApnd) }
   m_browse1:goBottomBlock := {||nakl2->(DBSEEK(nakl1->vnum,.f.)),nakl2->(DBEVAL(,,{||(nakl1->vnum==nakl2->vnum)})),nakl2->(dbskip(-1))}
@@ -131,8 +131,8 @@ Function Nakl(l_mode)
   Select nakl1 ; Wselect(n_win)
   m_browse:GetColumn(3):block:={||Status1()}
 
-  m_browse1:GetColumn(11):colorblock:=  {|| IF(field->KNDS==' ',{1,2},{7,8})}
-  m_browse1:GetColumn(1):colorblock:=  {|| IF(field->KNDS==' ',{1,2},{7,8})}
+  m_browse1:GetColumn(11):colorblock:=  {|| IF(nakl2->KNDS==' ',{1,2},{7,8})}
+  m_browse1:GetColumn(1):colorblock:=  {|| IF(nakl2->KNDS==' ',{1,2},{7,8})}
 
   ADD menu up_down
   add menu Left_Right
@@ -298,17 +298,17 @@ Function Nakl(l_mode)
               ENDIF
             ENDIF
             DO WHILE .t.
-              
+
 //                            1   2   3      4    5    6    7      8     10
 //  m_browse1:colorspec     :='W/B,B/W,GR+/b,GR+/N,N/BG,w+/b,RB+/N+,N+/RB+,BG/N+'
               m_browse1:refReshCurrent()
-              IF nakl2->KNDS!=' ' 
+              IF nakl2->KNDS!=' '
                  m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{7,8})
                ELSE
                	m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{1,1})
                ENDIF
         	   STABILIZE BROWSE m_browse1
-              IF nakl2->KNDS!=' ' 
+              IF nakl2->KNDS!=' '
         		  m_browse1:ColorRect({m_browse1:RowPos,1,m_browse1:RowPos,m_browse1:colCount},{10,7})
                   m_browse1:ColorRect({m_browse1:RowPos,m_browse1:ColPos,m_browse1:RowPos,m_browse1:ColPos},{8,7})
                ELSE
@@ -2102,7 +2102,7 @@ ELSE
 endif
 RETURN x
 STATIC FUNCTION getVat()
-IF field->KNDS == ' ' 
+IF nakl2->KNDS == ' '
 	RETURN GetNds()
 ENDIF
 RETURN  GetNds1()

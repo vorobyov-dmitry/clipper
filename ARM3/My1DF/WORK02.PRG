@@ -273,7 +273,7 @@ ENDIF
               FERASE(m_path1+"1df.dbf")
             ENDIF
            T2(m_num,2)
-           FILECOPY(m_workpath+"fl2.dbf",m_path1+"1df.dbf")
+           FILECOPY(m_workpath+"fl2.dbf",m_path1+"1df"+m_num+".dbf")
             SavePar()
             USE  (m_path1+"physpe~1") ALIAS p10 NEW
             INDEX ON p10->num TO (m_workpath+"p10")
@@ -555,6 +555,9 @@ ELSE
 ENDIF
 SavePar(1)
 RETURN .t.
+
+// export to medok
+
 STATIC FUnction T2(m_num,m_x)
 LOCAL a_struct:={;
 {"NP","N",5,0},;
