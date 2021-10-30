@@ -766,9 +766,9 @@ Function PrintNakl(a_data,a_pred01)
 ?"≈╔Ю╔╖ ╙╝ё╝  "+P_EMPH_ON+CHR(27)+"-1"+a_data[16]+""+P_EMPH_OFF+CHR(27)+"-0"
 ?"▐Ю╗╖╜═Г╔╜╜О "+P_EMPH_ON+CHR(27)+"-1"+a_data[17]+""+P_EMPH_OFF+CHR(27)+"-0"
 ?"▐╝╓═Б╙╝╒═ ╜═╙╚═╓╜═ N"+nakl1->ndoc2+" └═Б═: "+DTOC(nakl1->ddoc2)
-?CHR(27)+"Pддбддддддддддддддддддддбддддддбддддддддддбддддбддддддбдддддддддбдддддддддддд©"
-?CHR(27)+"3"+CHR(17)+CHR(27)+"S0 ЭЁ █═╖╒═, А╝ЮБ, Ю╝╖╛iЮЁ▌╓╗╜. Ё ┼i╚Л╙iАБЛЁ▌╓. Ё┼i╚Л╙.Ё   √i╜═  Ё    ▒Ц╛═    Ё"+CHR(27)+"T"
-?CHR(27)+"S0  Ё                    Ё╒╗╛iЮЦЁ          Ё╒╗╛2Ё    2 Ё ║╔╖ ▐└┌ Ё   ╓╝ ╝╞╚═Б╗Ё"+CHR(27)+"T"+CHR(27)+"2"
+?CHR(27)+"Pддбддддддддддддддддддддбддддддбддддддддддбддддбддддддбдддддддддбдддддддддддддд©"
+?CHR(27)+"3"+CHR(17)+CHR(27)+"S0 ЭЁ █═╖╒═, А╝ЮБ, Ю╝╖╛iЮЁ▌╓╗╜. Ё ┼i╚Л╙iАБЛЁ▌╓. Ё┼i╚Л╙.Ё   √i╜═  Ё    ▒Ц╛═      Ё"+CHR(27)+"T"
+?CHR(27)+"S0  Ё                    Ё╒╗╛iЮЦЁ          Ё╒╗╛2Ё    2 Ё ║╔╖ ▐└┌ Ё   ╓╝ ╝╞╚═Б╗  Ё"+CHR(27)+"T"+CHR(27)+"2"
 m_sum:=0;m_nds:=0;i:=1
 DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
   Kaptka1->(DS(nakl2->kod))
@@ -784,7 +784,7 @@ DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
       ENDIF
     ENDIF  */
   ENDIF
-  ?"ддеддддддддддддддддддддеддддддеддддддддддеддддеддддддедддддддддедддддддддддд╢"
+  ?"ддеддддддддддддддддддддеддддддеддддддддддеддддеддддддедддддддддедддддддддддддд╢"
     k:=1
     DO WHILE .NOT.EMPTY(m_str).OR.k==1
       IF LEN(m_str)>20
@@ -794,9 +794,9 @@ DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
       ENDIF
       l1:=IF(j==0,20,j)
         IF k==1
-           ?STRZERO(i,2)+"Ё"+PADR(LEFT(m_str,l1),20)+"Ё "+PADR(Kaptka1->izm,5)+"Ё"+STR(nakl2->kvo,10,2)+"Ё"+PADR(Kaptka1->izm2,4)+"Ё"+NumtoSTR(nakl2->glv,6)+"Ё"+Str(nakl2->prise,9,3)+"Ё"+SumToStr(nakl2->stm+nakl2->nds,12)+"Ё"
+           ?STRZERO(i,2)+"Ё"+PADR(LEFT(m_str,l1),20)+"Ё "+PADR(Kaptka1->izm,5)+"Ё"+STR(nakl2->kvo,10,2)+"Ё"+PADR(Kaptka1->izm2,4)+"Ё"+NumtoSTR(nakl2->glv,6)+"Ё"+Str(nakl2->prise,9,3)+"Ё"+SumToStr(nakl2->stm+nakl2->nds,14)+"Ё"
         ELSE
-        ?"  Ё"+PADR(LEFT(m_str,l1),20)+"Ё      Ё          Ё    Ё      Ё         Ё            Ё"
+        ?"  Ё"+PADR(LEFT(m_str,l1),20)+"Ё      Ё          Ё    Ё      Ё         Ё              Ё"
         ENDIF
         m_str:=SUBSTR(m_str,l1+1)
       k++
@@ -804,7 +804,7 @@ DO WHILE nakl2->VNUM==nakl1->vnum.AND..NOT.nakl2->(EOF())
   i++;m_sum+=nakl2->stm;m_nds+=nakl2->nds
   nakl2->(Dbskip())
 ENDDO
-?"ддаддддддддддддддддддддаддддддаддддддддддаддддаддддддадддддддддаддддддддддды"
+?"ддаддддддддддддддддддддаддддддаддддддддддаддддаддддддадддддддддаддддддддддддды"
 // ?"                                                              "+SumToStr(m_sum+m_nds,11)+CHR(27)+"P"
 ?"▒Ц╛═   "+CHR(27)+"E "+""+CHR(27)+"M"+ALLTRIM(SumToStr(m_sum))+P_EMPH_OFF+CHR(27)+"P"
 ??" ▐└┌ "+CHR(27)+"E "+""+CHR(27)+"M"+ALLTRIM(SumToStr(m_nds))+P_EMPH_OFF+CHR(27)+"P"

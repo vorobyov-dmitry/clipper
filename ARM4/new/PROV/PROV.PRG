@@ -815,13 +815,13 @@ LOCAL m_col,i,j
   m_br1:addColumn(m_col)
 
       m_Col           := TBColumnNew()
-      m_col:block:={||SumToStr(fp2->stm,12)}
+      m_col:block:={||SumToStr(fp2->stm,17)}
       m_col:heading:="‘ã¬ "
       AADD(l_print,.t.);m_Col:colorblock:=  {||IF(m_color,{1,2},{4,5})}
       m_Col:headsep    := "ÂÄ";m_col:colsep:="³";m_col:footsep:="ÏÍ"
       AADD(a_get2,GetNew())
       a_get2[LEN(a_get2)]:Block:=COLBR(fp2->stm)
-      a_get2[LEN(a_get2)]:picture="9'999'999.99"
+      a_get2[LEN(a_get2)]:picture="999'999'999.99"
       a_get2[LEN(a_get2)]:ColorSpec:="w/B*,Gr+/N"
       AADD(a_get3,GetNew())
       a_get3[LEN(a_get3)]:row:=13;a_get3[LEN(a_get3)]:col:=52

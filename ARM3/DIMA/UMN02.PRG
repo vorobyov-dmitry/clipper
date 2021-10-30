@@ -1510,6 +1510,7 @@ CLOSE myvar
 
   NET USE (m_sprpath+"sp10") INDEX (m_sprpath+"sp10")  NEW READONLY
   NET USE (m_sprpath+"sp08") INDEX (m_sprpath+"sp08")  NEW READONLY
+  NET USE (m_sprpath+"sp04") INDEX (m_sprpath+"sp04")  NEW READONLY
   NET USE  (m_syspath+"Struct") INDEX (m_syspath+"Struct") NEW READONLY
   struct->(DS("MASH09"))
   DO WHILE .NOT.struct->(EOF()).AND."MASH09"==struct->name
@@ -1687,6 +1688,11 @@ DO WHILE .NOT.buf->(EOF()).AND..NOT.l_finish
 @PROW()+1,3 SAY LEFT(ALLTRIM(buf->fam)  + ' ' + ALLTRIM(buf->imja);
                          + ' ' + ALLTRIM(buf->otch)+" "+buf->kpn+buf->kmn+buf->kvz,39)
 @PROW(),44 Say 'Таб. N ' + buf->tabn
+//SP10->(DS(buf->tabn))
+Sp04->(DS(buf->kprof))
+
+@PROW()+1,3 SAY buf->kprof+" "+sp04->name4b
+
 buf09->(DS(buf->tabn))
 @PROW()+1,0 SAY "НАРАХУВАННЯ  I  УТРИМАННЯ   За мiсяць        З початку року"
 m_sum1:=0;m_sum2:=0;m_otdnm:=0;m_otdny:=0;m_othsm:=0;m_othsy:=0
@@ -2031,7 +2037,7 @@ SET PRINTER TO
 SET DEVICE TO SCREEN
 DelGauge(m_gauge1)
 DelGauge(m_gauge)
-CLOSE BASE flish,sp10,sp08,buf,buf10,buf09,msh,fnpch
+CLOSE BASE flish,sp10,sp08,sp04,buf,buf10,buf09,msh,fnpch
 /*
 FERASE(m_temppath+"buf.dbf")
 FERASE(m_temppath+"buf10.dbf")
