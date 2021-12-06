@@ -1,4 +1,4 @@
- #include "new.ch"
+#include "new.ch"
 #include "menu.ch"
 #define K_ALT_T         276     // Alt-T
 MEMVAR a_menu,m_workpath,m_sprpath
@@ -561,7 +561,7 @@ RETURN .t.
 STATIC FUnction T2(m_num,m_x)
 LOCAL a_struct:={;
 {"NP","N",5,0},;
-{"PERIOD","N",1,0},;
+{"PERIOD","N",2,0},;
 {"RIK","N",4,0},;
 {"KOD","C",10,0},;
 {"TYP","N",1,0},;
