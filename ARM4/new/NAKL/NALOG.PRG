@@ -31,7 +31,7 @@ Function Nalog(l_mode)
     OpenFl1()
   ENDIF
   SET CURSOR OFF
-  SETKEY(K_CTRL_F2,{||PrNalog(a_data,a_pred01[7],a_pred01[8])})
+  SETKEY(K_CTRL_F2,{||PrNewNalog(a_data,a_pred01[7],a_pred01[8])})
   k_f4:=SETKEY(K_F4,{||firm01->(EdFirm03(@a_data)),EVAL(RefrGet)})
   k_f3:=SETKEY(K_F3,{||GetPr01(@a_pred01,@a_data,2),EVAL(RefrGet)})
   k_Ctrlf4:=SETKEY(K_CTRL_F4,{||nakl(1)})

@@ -7,6 +7,7 @@ MEMVAR m_temppath,m_platpath,m_oper,m_syspath,m_computer,m_exepath,m_copypath,m_
 #define SCHT_KORMA "10"
 #define SCHT_ZRPL "66"
 STATIC m_schtgsm:=""
+STATIC m_schtkvo2:=""
 STATIC m_koprgsm:=""
 
 Function SetParMsh(var)
@@ -325,6 +326,7 @@ STATIC Function GetMntMash(m_mnt1,m_mnt2,m_scht,m_kod,l_1)
   SET ESCAPE ON
   SET CURSOR ON
   @2,7 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
+  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2030".and.m_year1>="1999")
   @3,7 get m_month2 PICTURE "99" COLOR "gr+/b*,gr+/n" VALID (m_month2<"13".and.m_month2>"00")
   @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2030".and.m_year1>="1999")
@@ -676,7 +678,7 @@ Function RMs63()
   m_mnt1:=SPACE(4),m_mnt2:=SPACE(4),m_gauge,a_total:={},a_scht:={}
 
   LOCAL m_num_mash:="63",a_files:={},l_exit:=.f.
-LOCAL   m_kopr2,s_kormday
+  LOCAL   m_kopr2,s_kormday
 
 LOCAL   b_cond1db:={||IF((fp1->maket<> "51") .AND. AT(fp2->kopr,s_kormday)<>0,.F.,.t.)}
 LOCAL   b_cond1cr:={||IF((fp1->maket <> "51".OR.fp2->kopr==m_kopr2) .AND. AT(fp2->kopr,s_kormday)<>0,.F.,.t.)}
@@ -690,8 +692,10 @@ ENDIF
   // необходимо определить , что не должно суммироваться в количество
   USE (m_uchpath+"\inst1") INDEX  (m_uchpath+"\inst1") new ALIAS myvar
   RESTMEM m_kopr2  // операция ГСМ
+
   RESTMEM s_kormday // кормодни и т.д.
   RESTMEM m_schtgsm  // счет ГСМ - литры сумируются в головы
+  RESTMEM m_schtkvo2 // count with kvo 2
   CLOSE myvar
   s_kormday:=ALLTRIM(s_kormday)
   m_kopr2:=ALLTRIM(m_kopr2)
@@ -735,13 +739,18 @@ ENDIF
              buf->kplh:=fp2->kplh
              buf->kopr:=fp2->kopr
              buf->dbkvo:=fp2->kvo
+             //buf->dbkvo2:=fp2->kvo2
              buf->dbstm:=fp2->stm
              buf->dbglv:=fp2->glv
-            IF LEFT(buf->dbt,LEN(m_schtgsm))==m_schtgsm
+        IF LEFT(buf->dbt,LEN(m_schtgsm))==m_schtgsm
               buf->dbglv:=fp2->kvo2
               IF fp2->kvo2<>0;l_glv:="1";ENDIF
-            ENDIF
-             IF .not.EMPTY(buf->cod2)
+         ENDIF
+        IF LEFT(buf->dbt,LEN(m_schtkvo2))==m_schtkvo2
+              buf->dbglv:=fp2->kvo2
+              IF fp2->kvo2<>0;l_glv:="1";ENDIF
+         ENDIF
+            IF .not.EMPTY(buf->cod2)
               buf->name:=buf->kopr+" "+buf->crt+" "+buf->cod2
             ELSE
               Sp44->(DS(buf->crt))
@@ -801,9 +810,14 @@ ENDIF
              buf->kplh:=fp2->otp
              buf->kopr:=fp2->kopr
              buf->crkvo:=fp2->kvo
+             //buf->crkvo2:=fp2->kvo2
              buf->crstm:=fp2->stm
              buf->crglv:=fp2->glv
             IF LEFT(buf->dbt,LEN(m_schtgsm))==m_schtgsm
+              buf->crglv:=fp2->kvo2
+              IF fp2->kvo2<>0;l_glv:="1";ENDIF
+            ENDIF
+            IF LEFT(buf->dbt,LEN(m_schtkvo2))==m_schtkvo2
               buf->crglv:=fp2->kvo2
               IF fp2->kvo2<>0;l_glv:="1";ENDIF
             ENDIF
@@ -903,9 +917,18 @@ STATIC Function m63dbap(m_dbt,m_cod1,m_kplh,m_level,m_mnt1,m_mnt2,b_name,b_kvo)
         buf->docCount:=1 // Признак наличия первичного документа в оборотах
 
         buf->dbstm+=fp2->stm
-        buf->dbglv+=fp2->glv
+//        buf->dbglv+=fp2->glv
+//        IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
+//          buf->dbglv+=fp2->kvo2
+//        ENDIF
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->dbglv+=fp2->kvo2
+        ELSE
+          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+            buf->dbglv+=fp2->kvo2
+          ELSE
+            buf->dbglv+=fp2->glv
+          ENDIF
         ENDIF
       ELSE
         // ВХОДЯЩЕЕ САЛЬДО
@@ -937,10 +960,16 @@ STATIC Function m63crap(m_dbt,m_cod1,m_kplh,m_level,m_mnt1,m_mnt2,b_name,b_kvo)
           buf->crkvo+=fp2->kvo
         ENDIF
         buf->crstm+=fp2->stm
-        buf->crglv+=fp2->glv
+//        buf->crglv+=fp2->glv
         buf->docCount:=1 // Признак наличия первичного документа в оборотах
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->crglv+=fp2->kvo2
+        ELSE
+          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+            buf->crglv+=fp2->kvo2
+          ELSE
+            buf->crglv+=fp2->glv
+          ENDIF
         ENDIF
       ELSE
         // ВХОДЯЩЕЕ САЛЬДО
@@ -948,9 +977,15 @@ STATIC Function m63crap(m_dbt,m_cod1,m_kplh,m_level,m_mnt1,m_mnt2,b_name,b_kvo)
           buf->inkvo-=fp2->kvo
         ENDIF
         buf->instm-=fp2->stm
-        buf->inglv-=fp2->glv
+//        buf->inglv-=fp2->glv
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->inglv-=fp2->kvo2
+        ELSE
+          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+            buf->inglv-=fp2->kvo2
+          ELSE
+            buf->inglv-=fp2->glv
+          ENDIF
         ENDIF
       ENDIF
 RETURN .T.
@@ -1137,10 +1172,15 @@ STATIC Function m64dbap(m_dbt,m_cod1,m_kopr,m_level,m_crt,m_cod2,b_name,b_kvo,s_
       ENDIF
 
         buf->dbstm+=fp2->stm
-        buf->dbglv+=fp2->glv
         IF LEFT(m_dbt,LEN(m_schtgsm))==m_schtgsm
           buf->dbglv+=fp2->kvo2
-      ENDIF
+        ELSE
+//          IF LEFT(m_dbt,LEN(m_schtkvo2))==m_schtkvo2
+//            buf->dbglv+=fp2->kvo2
+//          ELSE
+            buf->dbglv+=fp2->glv
+//          ENDIF
+        ENDIF
       IF .NOT.EMPTY(s_itog)
         buf->itog:=s_itog
       ENDIF
@@ -3211,9 +3251,9 @@ STATIC Function GetMntSvr(m_mnt1,m_mnt2,m_scht,m_cod,m_kod)
   m_scht:=SPACE(7)
   m_cod:=SPACE(10)
   @2,7 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
-  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @3,7 get m_month2 PICTURE "99" COLOR "gr+/b*,gr+/n" VALID (m_month2<"13".and.m_month2>"00")
-  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2029".and.m_year1>="1999")
   @15,9 get m_scht PICTURE "XXXXXXX" COLOR "gr+/b*,gr+/n" VALID Sp44->(Sp_vl("SP44",,15,20,"Sp44->naim7","Gr+/b"))
   @16,9 get m_cod  COLOR "gr+/b*,gr+/n" VALID (EMPTY(m_cod).OR.AnCodValid(m_scht,m_cod,16,20,,34)) WHEN PreAnCod(m_scht)
   GetList[LEN(GetList)]:Block:={|x|IF(x==NIL,AnalCod(x,m_scht,m_cod),m_cod:=PADR(x,10))}

@@ -400,6 +400,7 @@ ELSE
 	FlishAp(s_month,m_tabn1,'901',0,0,m_sum,"!","")
 //	FlishAp(s_month,m_tabn1,'951', 0,0,m_sum,"!","")
 ENDIF
+sum_war:=0
 IF ((flish1->sum1) >0)
   m_sum :=flish1->sum1
 //IF ((flish1->sum1+flish1->sum1a) >0)
@@ -434,7 +435,7 @@ ENDIF
                 Sum09 := Sp15->sum
               ENDIF
             ELSE                                    /* если алименты */
-               m_sum:=flish1->sum7-SumPodohod-SumPensNalog
+               m_sum:=flish1->sum7-SumPodohod-SumPensNalog-sum_war
 //               m_sum:=flish1->sum7-SumPodohod
 
                nMinAlim:=a_tab1[1,1]*0.5

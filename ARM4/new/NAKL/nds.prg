@@ -6,10 +6,12 @@
 MEMVAR m_platpath
 STATIC k_nds1,k_nds2,k_nds3,k_ndsDbt
 STATIC a_nds1:={},a_nds2:={}
-STATIC k_ndsKopr,m_nds,s_nds1,s_nds2
+STATIC k_ndsKopr,m_nds,s_nds1,s_nds2,m_nds1
 Function InitNds
   NET USE (m_platpath+"NDS") READONLY NEW
   m_nds:=nds->nds/100  // процент ндс
+  m_nds1:=nds->nds1/100  // процент ндс
+  
 
   k_nds1:=nds->ksash  // Растениеводство
   // Преобразуем в массив
@@ -45,6 +47,12 @@ RETURN k_ndsKopr
 Function GetNds()
 IF CountNds()
     RETURN m_nds
+ENDIF
+RETURN 0
+
+Function GetNds1()
+IF CountNds()
+    RETURN m_nds1
 ENDIF
 RETURN 0
 

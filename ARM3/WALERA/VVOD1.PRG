@@ -244,7 +244,7 @@ WHILE .T.
                 m_sum := 0
                 m_kopu:=IF(j==1,arr1[5,2],SPACE(3))
                 @ ii,12*j+20 GET m_kopu VALID sp08->(sp_vl("SP08",IF(j==1,"1","2")))
-                @ ii,12*j+24 GET m_sum  WHEN (.NOT.EMPTY(m_kopu)) PICTURE '9999.99'
+                @ ii,12*j+23 GET m_sum  WHEN (.NOT.EMPTY(m_kopu)) PICTURE '99999.99'
                 ReadMy(GetList,a_block);GetList:={}
                 SET(_SET_ESCAPE,.F.)
                 IF LASTKEY() == K_ESC  .or. EMPTY(m_kopu)

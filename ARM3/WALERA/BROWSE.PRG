@@ -2132,9 +2132,9 @@ WHILE fz2->vnum1 == fz1->vnum1 .and. !fz2->(EOF())
 //@9,10 SAY LEN(a_recno [LEN(a_recno)])
 //@10,10 SAY LEN(p_name)
        FOR i = 1 TO LEN(p_fz3)
-//@11,10 SAY i 
-//@12,10 SAY p_name[p_fz3[i]] 
-//@13,10 SAY fz3->(RECNO()) 
+//@11,10 SAY i
+//@12,10 SAY p_name[p_fz3[i]]
+//@13,10 SAY fz3->(RECNO())
 //INKEY(0)
           p_value[LEN(p_value),p_fz3[i]] := &(p_name[p_fz3[i]])
           a_recno [LEN(a_recno) ,p_fz3[i]] := fz3->(RECNO())
@@ -2745,18 +2745,18 @@ FUNCTION sSAY09()
 
    @ 5,25 SAY m_topl[1,1]  COLOR "GR+/B"
    @ 5,46 SAY m_topl[1,2]
-   @ 5,50 SAY m_topl[1,3]   PICTURE "9999"
+   @ 5,50 SAY m_topl[1,3]   PICTURE "9999.9"
 
 //   @ 6,25 SAY m_topl[2,1]  COLOR "GR+/B"
    @ 6,46 SAY IF(!EMPTY(m_topl[2,2]),m_topl[2,2],"")
-   @ 6,50 SAY IF(!EMPTY(m_topl[2,3]),TRANSFORM(m_topl[2,3],"9999"),"")
+   @ 6,50 SAY IF(!EMPTY(m_topl[2,3]),TRANSFORM(m_topl[2,3],"9999.9"),"")
 
 //   @ 7,25 SAY m_topl[3,1]  COLOR "GR+/B"
    @ 7,46 SAY IF(!EMPTY(m_topl[3,2]),m_topl[3,2],"")
-   @ 6,50 SAY IF(!EMPTY(m_topl[3,3]),TRANSFORM(m_topl[3,3],"9999"),"")
+   @ 6,50 SAY IF(!EMPTY(m_topl[3,3]),TRANSFORM(m_topl[3,3],"9999.9"),"")
 
-   @ 7,58 SAY m_rashod[1]   PICTURE "9999"
-   @ 7,65 SAY m_rashod[2]   PICTURE "9999"
+   @ 7,56 SAY m_rashod[1]   PICTURE "9999.9"
+   @ 7,67 SAY m_rashod[2]   PICTURE "9999.9"
 
    @ 17,01  SAY m_all[1] PICTURE "999"
    @ 17,05  SAY m_all[2] PICTURE "999"
@@ -2840,18 +2840,18 @@ DISPBEGIN()
 
    @ 5,25 SAY m_topl[1,1]  COLOR "GR+/B"
    @ 5,46 SAY m_topl[1,2]
-   @ 5,50 SAY m_topl[1,3]   PICTURE "9999"
+   @ 5,50 SAY m_topl[1,3]   PICTURE "9999.9"
 
 //   @ 6,25 SAY m_topl[2,1]  COLOR "GR+/B"
    @ 6,46 SAY IF(!EMPTY(m_topl[2,2]),m_topl[2,2],"")
-   @ 6,50 SAY IF(!EMPTY(m_topl[2,3]),TRANSFORM(m_topl[2,3],"9999"),"")
+   @ 6,50 SAY IF(!EMPTY(m_topl[2,3]),TRANSFORM(m_topl[2,3],"9999.9"),"")
 
 //   @ 7,25 SAY m_topl[3,1]  COLOR "GR+/B"
    @ 7,46 SAY IF(!EMPTY(m_topl[3,2]),m_topl[3,2],"")
-   @ 6,50 SAY IF(!EMPTY(m_topl[3,3]),TRANSFORM(m_topl[3,3],"9999"),"")
+   @ 6,50 SAY IF(!EMPTY(m_topl[3,3]),TRANSFORM(m_topl[3,3],"9999.9"),"")
 
-   @ 7,58 SAY m_rashod[1]   PICTURE "9999"
-   @ 7,65 SAY m_rashod[2]   PICTURE "9999"
+   @ 7,56 SAY m_rashod[1]   PICTURE "9999.9"
+   @ 7,67 SAY m_rashod[2]   PICTURE "9999.9"
 
    @ 18,01  SAY m_all[1] PICTURE "999"  // vnvs
    @ 18,05  SAY m_all[2] PICTURE "999"  // vndv
@@ -3316,10 +3316,10 @@ LOCAL s := SET(_SET_ESCAPE,.t.)
    @ 5,46 GET m_topl[1,2]  ;
        VALID ( EVAL({||m_tr:=sp44->(DBSEEK(GetGsm()+m_topl[1,2])),;
                      m_topl[1,1]:=sp44->naim7,m_tr}))
-   @ 5,50 GET m_topl[1,3]  PICTURE "9999"
+   @ 5,50 GET m_topl[1,3]  PICTURE "9999.9"
 
-   @ 7,58 GET m_rashod[1]   PICTURE "9999"
-   @ 7,65 GET m_rashod[2]   PICTURE "9999"
+   @ 7,56 GET m_rashod[1]   PICTURE "9999.9"
+   @ 7,67 GET m_rashod[2]   PICTURE "9999.9"
 
    @ 17,01  GET m_all[1] PICTURE "999"
    @ 17,05  GET m_all[2] PICTURE "999"
@@ -3447,11 +3447,11 @@ LOCAL s := SET(_SET_ESCAPE,.t.)
    @ 5,46 GET m_topl[1,2]  ;
        VALID ( EVAL({||m_tr:=sp44->(DBSEEK(GetGsm()+m_topl[1,2])),;
                      m_topl[1,1]:=sp44->naim7,m_tr}))
-   @ 5,50 GET m_topl[1,3]  PICTURE "9999"
+   @ 5,50 GET m_topl[1,3]  PICTURE "9999.9"
 
 
-   @ 7,58 GET m_rashod[1]   PICTURE "9999"
-   @ 7,65 GET m_rashod[2]   PICTURE "9999"
+   @ 7,56 GET m_rashod[1]   PICTURE "9999.9"
+   @ 7,67 GET m_rashod[2]   PICTURE "9999.9"
 
    @ 18,01  GET m_all[1] PICTURE "999"
    @ 18,05  GET m_all[2] PICTURE "999"
