@@ -5,7 +5,7 @@ MEMVAR m_temppath,m_platpath,m_oper,m_syspath,m_computer,m_exepath,m_copypath,m_
 #define SCHT_OST "04"
 #define R_CH CHR(255)
 #define SCHT_KORMA "10"
-#define SCHT_ZRPL "661"
+#define SCHT_ZRPL "66"
 STATIC m_schtgsm:=""
 STATIC m_koprgsm:=""
 
@@ -325,9 +325,9 @@ STATIC Function GetMntMash(m_mnt1,m_mnt2,m_scht,m_kod,l_1)
   SET ESCAPE ON
   SET CURSOR ON
   @2,7 get m_month1 PICTURE "99" COLOR "gr+/B*,gr+/n" VALID (m_month1<"13".and.m_month1>"00")
-  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @2,17 get m_year1 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2030".and.m_year1>="1999")
   @3,7 get m_month2 PICTURE "99" COLOR "gr+/b*,gr+/n" VALID (m_month2<"13".and.m_month2>"00")
-  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2020".and.m_year1>="1999")
+  @3,17 get m_year2 PICTURE "9999" COLOR "gr+/b*,gr+/n" VALID (m_year1<="2030".and.m_year1>="1999")
   @15,10 get m_scht PICTURE "@s46" COLOR "gr+/b*,gr+/n" WHEN l_edit
   @16,27 get m_kod PICTURE "9" COLOR "gr+/b*,gr+/n" VALID (m_kod==" " .or.m_kod=="1" .or.m_kod=="2")
   READ
@@ -2283,7 +2283,7 @@ ENDIF
 // Занесение сальдо по 661 счету
   SET ORDER TO 1
 
-IF buf1->(DS(LEFT(SCHT_ZRPL,3)+REPLICATE(R_CH,4)+REPLICATE(R_CH,10+7+10)+"5")) // Итог по субсчету
+IF buf1->(DS(LEFT(SCHT_ZRPL,2)+REPLICATE(R_CH,5)+REPLICATE(R_CH,10+7+10)+"5")) // Итог по субсчету
   NET USE (m_mainpath+"d52") NEW READONLY
   LOCATE FOR d52->subsch == '700'.AND.d52->month == mnt_month(m_mnt1)-1
    IF FOUND()
@@ -2314,12 +2314,12 @@ IF buf1->(DS(LEFT(SCHT_ZRPL,3)+REPLICATE(R_CH,4)+REPLICATE(R_CH,10+7+10)+"5")) /
          DispError(" Рахунок "+SCHT_ZRPL+ " не пiйшов на сумму;"+SumToSTR(i,14))
   ENDIF
 
-IF buf1->(DS(LEFT(SCHT_ZRPL,2)+REPLICATE(R_CH,5)+REPLICATE(R_CH,10)+REPLICATE(R_CH,7)+REPLICATE(R_CH,10)+"6")) // Итог по счету
-      buf1->indbstm +=s1
-      buf1->incrstm +=s2
-      buf1->outdbstm+=s3
-      buf1->outcrstm+=s4
-ENDIF
+// IF buf1->(DS(LEFT(SCHT_ZRPL,2)+REPLICATE(R_CH,5)+REPLICATE(R_CH,10)+REPLICATE(R_CH,7)+REPLICATE(R_CH,10)+"6")) // Итог по счету
+//      buf1->indbstm +=s1
+//      buf1->incrstm +=s2
+//      buf1->outdbstm+=s3
+//      buf1->outcrstm+=s4
+// ENDIF
 
 CLOSE d52
 ENDIF
@@ -2667,10 +2667,10 @@ IF buf1->(DS(LEFT(SCHT_ZRPL+REPLICATE(R_CH,7),7)))
    IF i<>0
          DispError(" Рахунок "+SCHT_ZRPL+ " не пiйшов на сумму;"+SumToSTR(i,14))
   ENDIF
-  IF sp11->(DS(PADR(LEFT(SCHT_ZRPL,2),7)))
-        sp44->(DS(PADR(LEFT(SCHT_ZRPL,2),7)))
-        m75db70(LEFT(LEFT(SCHT_ZRPL,2)+REPLICATE(R_CH,7),7),"3",sp11->type1,s1,s2,s3,s4)
-  ENDIF
+//  IF sp11->(DS(PADR(LEFT(SCHT_ZRPL,2),7)))
+//        sp44->(DS(PADR(LEFT(SCHT_ZRPL,2),7)))
+//        m75db70(LEFT(LEFT(SCHT_ZRPL,2)+REPLICATE(R_CH,7),7),"3",sp11->type1,s1,s2,s3,s4)
+//  ENDIF
 
 CLOSE d52
 ENDIF
